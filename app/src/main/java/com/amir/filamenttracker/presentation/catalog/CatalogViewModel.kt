@@ -11,18 +11,25 @@ import javax.inject.Inject
 class CatalogViewModel @Inject constructor(private val catalog: CatalogRepository) : BaseViewModel() {
     val materials = catalog.materials.asState(emptyList())
     val colors = catalog.colors.asState(emptyList())
+    val brands = catalog.brands.asState(emptyList())
     val products = catalog.products.asState(emptyList())
 
-    fun addMaterial(name: String) = launchAction { catalog.addMaterial(name); "החומר נשמר" }
+    fun addMaterial(family: String, variant: String) = launchAction {
+        catalog.addMaterial(family, variant)
+        "החומר נשמר"
+    }
 
     fun addColor(name: String, hex: String) = launchAction { catalog.addColor(name, hex); "הצבע נשמר" }
 
     fun createProduct(input: NewProductInput) = launchAction {
-        catalog.createProduct(input.brand, input.materialName, input.colorName, input.colorHex, input.weightGrams, input.note)
+        catalog.createProduct(input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note)
         "המוצר נשמר"
     }
 
-    fun renameMaterial(id: Long, name: String) = launchAction { catalog.renameMaterial(id, name); null }
+    fun updateMaterial(id: Long, family: String, variant: String) = launchAction {
+        catalog.updateMaterial(id, family, variant)
+        null
+    }
 
     fun updateColor(id: Long, name: String, hex: String) = launchAction { catalog.updateColor(id, name, hex); null }
 

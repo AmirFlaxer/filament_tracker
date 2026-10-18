@@ -12,6 +12,8 @@ import java.time.LocalDate
 data class MaterialEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    val family: String,
+    val variant: String = "",
     val archived: Boolean = false,
 )
 
@@ -93,12 +95,8 @@ data class SpoolEventEntity(
 
 @Entity(
     tableName = "stock_targets",
-    primaryKeys = ["materialId", "colorId"],
+    primaryKeys = ["family", "colorId"],
     foreignKeys = [
-        ForeignKey(
-            entity = MaterialEntity::class, parentColumns = ["id"], childColumns = ["materialId"],
-            onDelete = ForeignKey.CASCADE,
-        ),
         ForeignKey(
             entity = ColorEntity::class, parentColumns = ["id"], childColumns = ["colorId"],
             onDelete = ForeignKey.CASCADE,
@@ -106,4 +104,8 @@ data class SpoolEventEntity(
     ],
     indices = [Index("colorId")],
 )
-data class StockTargetEntity(val materialId: Long, val colorId: Long, val minSealed: Int = 1)
+/**
+ * A target is a main material (family) plus a color. [family] keeps the spelling of the first
+ * material that used it; queries compare it with COLLATE NOCASE.
+ */
+data class StockTargetEntity(val family: String, val colorId: Long, val minSealed: Int = 1)

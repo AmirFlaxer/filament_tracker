@@ -11,7 +11,13 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +30,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,9 +61,11 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
     val products by vm.products.collectAsStateWithLifecycle()
     val materials by vm.materials.collectAsStateWithLifecycle()
     val colors by vm.colors.collectAsStateWithLifecycle()
+    val brands by vm.brands.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val occupants by vm.occupants.collectAsStateWithLifecycle()
     val adding by vm.adding.collectAsStateWithLifecycle()
+    val lastAdded by vm.lastAdded.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
 
@@ -65,14 +74,33 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
     var slot by rememberSaveable { mutableStateOf<Int?>(null) }
     var picker by remember { mutableStateOf(false) }
     var newProduct by remember { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    // The card sits at the top; bring it into view after "הוסף" in landscape or with the keyboard open.
+    LaunchedEffect(lastAdded) { if (lastAdded != null) scroll.animateScrollTo(0) }
     val inUse = status == SpoolStatus.IN_USE
     val canAdd = !adding && selected != null && (!inUse || slot != null)
 
     Scaffold(topBar = { BackTopBar("הוספת סליל קיים", onBack) }, snackbarHost = { SnackbarHost(host) }) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(scroll).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            lastAdded?.let { text ->
+                Card(
+                    Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                ) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null)
+                        Text(text)
+                    }
+                }
+            }
+
             Text("מוצר", style = MaterialTheme.typography.titleSmall)
             OutlinedCard(onClick = { picker = true }, modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -105,11 +133,21 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
                 }
                 slot?.let { n ->
                     occupants[n]?.let { title ->
-                        Text(
-                            "בחריץ $n נמצא $title, והוא יעבור לאחסון",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "בחריץ $n נמצא $title. הוא יעבור לאחסון כשתוסיף.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             } else {
@@ -119,7 +157,10 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
 
             Button(
                 onClick = {
-                    vm.add(if (inUse) 1 else quantity, status, if (inUse) slot else null) { quantity = 1 }
+                    vm.add(if (inUse) 1 else quantity, status, if (inUse) slot else null) {
+                        quantity = 1
+                        slot = null
+                    }
                 },
                 enabled = canAdd,
                 modifier = Modifier.fillMaxWidth(),
@@ -137,7 +178,7 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
         )
     }
     if (newProduct) {
-        NewProductDialog(materials, colors, onDismiss = { newProduct = false }) {
+        NewProductDialog(materials, colors, brands, onDismiss = { newProduct = false }) {
             vm.createProduct(it)
             newProduct = false
         }

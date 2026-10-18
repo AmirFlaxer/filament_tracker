@@ -7,12 +7,27 @@ import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.BaseViewModel
 import com.amir.filamenttracker.presentation.common.NewProductInput
+import com.amir.filamenttracker.presentation.common.countLabel
+import com.amir.filamenttracker.presentation.common.label
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+
+/** Confirmation line shown after a successful add. */
+fun addedText(title: String, count: Int, status: SpoolStatus, slot: Int?): String =
+    if (count == 1) {
+        "נוסף: $title, " + if (status == SpoolStatus.IN_USE && slot != null) "בחריץ $slot" else status.label()
+    } else {
+        // The count is already in the lead, so only the plural status word follows (spec section 6).
+        "נוספו $count: $title, " + when (status) {
+            SpoolStatus.SEALED -> "סגורים"
+            SpoolStatus.OPEN_STORED -> "פתוחים באחסון"
+            else -> status.label()
+        }
+    }
 
 @HiltViewModel
 class AddExistingViewModel @Inject constructor(
@@ -21,6 +36,7 @@ class AddExistingViewModel @Inject constructor(
 ) : BaseViewModel() {
     val materials = catalog.materials.asState(emptyList())
     val colors = catalog.colors.asState(emptyList())
+    val brands = catalog.brands.asState(emptyList())
     val products = catalog.products.asState(emptyList())
 
     private val selectedId = MutableStateFlow<Long?>(null)
@@ -32,12 +48,21 @@ class AddExistingViewModel @Inject constructor(
         rows.filter { it.status == SpoolStatus.IN_USE && it.amsSlot != null }.associate { it.amsSlot!! to it.title }
     }.asState(emptyMap())
 
-    fun select(productId: Long) { selectedId.value = productId }
+    private val _lastAdded = MutableStateFlow<String?>(null)
+    val lastAdded: StateFlow<String?> = _lastAdded
+
+    /** Single place that changes the selection; the confirmation card only describes the product it was added for. */
+    private fun setSelected(productId: Long) {
+        if (selectedId.value != productId) _lastAdded.value = null
+        selectedId.value = productId
+    }
+
+    fun select(productId: Long) = setSelected(productId)
 
     fun createProduct(input: NewProductInput) = launchAction {
-        selectedId.value = catalog.createProduct(
-            input.brand, input.materialName, input.colorName, input.colorHex, input.weightGrams, input.note,
-        )
+        setSelected(catalog.createProduct(
+            input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note,
+        ))
         "המוצר נשמר"
     }
 
@@ -49,10 +74,12 @@ class AddExistingViewModel @Inject constructor(
         if (!_adding.compareAndSet(false, true)) return
         launchAction {
             try {
-                val productId = selectedId.value ?: throw IllegalArgumentException("יש לבחור מוצר")
-                val ids = inventory.addExisting(productId, quantity, status, slot)
+                // Capture before the suspend call: the text must describe the product actually added.
+                val product = selected.value ?: throw IllegalArgumentException("יש לבחור מוצר")
+                val ids = inventory.addExisting(product.productId, quantity, status, slot)
                 onSuccess()
-                if (ids.size == 1) "נוסף סליל אחד" else "נוספו ${ids.size} סלילים"
+                _lastAdded.value = addedText(product.title, ids.size, status, slot)
+                null
             } finally {
                 _adding.value = false
             }

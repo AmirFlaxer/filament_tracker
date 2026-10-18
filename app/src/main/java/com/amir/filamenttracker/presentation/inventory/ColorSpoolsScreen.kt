@@ -20,13 +20,13 @@ import com.amir.filamenttracker.presentation.common.statusText
 @Composable
 fun ColorSpoolsScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: ColorSpoolsViewModel = hiltViewModel()) {
     val spools by vm.spools.collectAsStateWithLifecycle()
-    val title = spools.firstOrNull()?.let { "${it.materialName} ${it.colorName}" } ?: "סלילים"
+    val title = spools.firstOrNull()?.let { "${it.materialFamily} ${it.colorName}" } ?: "סלילים"
 
     Scaffold(topBar = { BackTopBar(title, onBack) }) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize()) {
             items(spools, key = { it.spoolId }) { spool ->
                 ListItem(
-                    headlineContent = { Text(spool.brand) },
+                    headlineContent = { Text("${spool.brand} · ${spool.materialName}") },
                     supportingContent = { Text(spool.statusText()) },
                     leadingContent = { ColorDot(spool.colorHex) },
                     modifier = Modifier.clickable { onSpoolClick(spool.spoolId) },

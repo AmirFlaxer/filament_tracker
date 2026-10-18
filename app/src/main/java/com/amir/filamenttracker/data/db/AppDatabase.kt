@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MaterialEntity::class, ColorEntity::class, ProductEntity::class, OrderEntity::class,
         SpoolEntity::class, SpoolEventEntity::class, StockTargetEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -26,7 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
         /** The two materials in use today (spec section 1). More are added from the catalog screen. */
         val SEED_CALLBACK = object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
-                db.execSQL("INSERT INTO materials (name, archived) VALUES ('PLA', 0), ('PETG', 0)")
+                db.execSQL("INSERT INTO materials (name, family, variant, archived) VALUES ('PLA', 'PLA', '', 0), ('PETG', 'PETG', '', 0)")
             }
         }
     }

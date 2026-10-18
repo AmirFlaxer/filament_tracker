@@ -2,6 +2,7 @@ package com.amir.filamenttracker.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.amir.filamenttracker.data.db.AppDatabase
+import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.SpoolEntity
 import com.amir.filamenttracker.data.db.StockTargetEntity
 import com.amir.filamenttracker.domain.model.SpoolStatus
@@ -33,9 +34,9 @@ class CatalogRepositoryTest {
     }
 
     @Test
-    fun `non-breaking space in a name merges with a normal space`() = runTest {
+    fun `same family and variant gives the same material`() = runTest {
         val before = repo.materials.first().size
-        val id = repo.addMaterial("PLA Pro")
+        val id = repo.addMaterial("PLA", "Pro")
         assertEquals(id, repo.addMaterial("PLA\u00A0Pro"))
         assertEquals(before + 1, repo.materials.first().size)
     }
@@ -62,24 +63,25 @@ class CatalogRepositoryTest {
 
     @Test
     fun `createProduct creates a missing material and color`() = runTest {
-        val id = repo.createProduct("Sunlu", "TPU", "כחול", "", 1000, "")
+        val id = repo.createProduct("Sunlu", "TPU", "", "כחול", "", 1000, "")
         val product = repo.products.first().single()
         assertEquals(id, product.productId)
         assertEquals("TPU", product.materialName)
+        assertEquals("TPU", product.materialFamily)
         assertEquals("כחול", product.colorName)
         assertEquals(3, repo.materials.first().size)
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `blank brand is rejected`() = runTest { repo.createProduct(" ", "PLA", "שחור", "", 1000, "") }
+    fun `blank brand is rejected`() = runTest { repo.createProduct(" ", "PLA", "", "שחור", "", 1000, "") }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `zero weight is rejected`() = runTest { repo.createProduct("X", "PLA", "שחור", "", 0, "") }
+    fun `zero weight is rejected`() = runTest { repo.createProduct("X", "PLA", "", "שחור", "", 0, "") }
 
     @Test
     fun `product with spools is archived, product without spools is deleted`() = runTest {
-        val used = repo.createProduct("A", "PLA", "שחור", "", 1000, "")
-        val unused = repo.createProduct("B", "PLA", "לבן", "", 1000, "")
+        val used = repo.createProduct("A", "PLA", "", "שחור", "", 1000, "")
+        val unused = repo.createProduct("B", "PLA", "", "לבן", "", 1000, "")
         db.spoolDao().insertSpool(SpoolEntity(productId = used, orderId = null, status = SpoolStatus.SEALED, amsSlot = null))
 
         assertEquals(RemoveResult.ARCHIVED, repo.removeProduct(used))
@@ -89,10 +91,9 @@ class CatalogRepositoryTest {
 
     @Test
     fun `color in use is archived, its target dropped, and re-adding revives it`() = runTest {
-        repo.createProduct("A", "PLA", "שחור", "", 1000, "")
-        val pla = db.catalogDao().materialByName("PLA")!!.id
+        repo.createProduct("A", "PLA", "", "שחור", "", 1000, "")
         val black = db.catalogDao().colorByName("שחור")!!.id
-        db.stockDao().upsert(StockTargetEntity(pla, black, 1))
+        db.stockDao().upsert(StockTargetEntity("PLA", black, 1))
 
         assertEquals(RemoveResult.ARCHIVED, repo.removeColor(black))
         assertTrue(repo.colors.first().isEmpty())
@@ -111,6 +112,147 @@ class CatalogRepositoryTest {
     @Test(expected = IllegalArgumentException::class)
     fun `renaming a material onto an existing name is rejected`() = runTest {
         val petg = db.catalogDao().materialByName("PETG")!!.id
-        repo.renameMaterial(petg, "pla")
+        repo.updateMaterial(petg, "pla", "")
+    }
+
+    @Test
+    fun `editing a material onto another family and variant is rejected ignoring case`() = runTest {
+        val rapid = repo.addMaterial("PETG", "Rapid")
+        val hf = repo.addMaterial("PETG", "HF")
+        val error = runCatching { repo.updateMaterial(hf, "petg", "rapid") }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertEquals("כבר קיים חומר עם אותו חומר ראשי ותת-סוג", error!!.message)
+        assertEquals("PETG HF", db.catalogDao().material(hf)!!.name)
+        // Editing a material to its own family and variant, only changing the case, is fine.
+        repo.updateMaterial(rapid, "PETG", "RAPID")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `blank family is rejected`() = runTest { repo.addMaterial("  ", "Rapid") }
+
+    @Test
+    fun `addMaterial finds the existing family and variant ignoring case`() = runTest {
+        val rapid = repo.addMaterial("PETG", "Rapid")
+        assertEquals(rapid, repo.addMaterial("petg", "rapid"))
+        assertEquals("PETG Rapid", db.catalogDao().materialByName("petg rapid")!!.name)
+    }
+
+    @Test
+    fun `addMaterial with a symbol variant composes an attached name`() = runTest {
+        val id = repo.addMaterial("PLA", "+")
+        val m = db.catalogDao().materialByName("PLA+")!!
+        assertEquals(id, m.id)
+        assertEquals("PLA", m.family)
+        assertEquals("+", m.variant)
+    }
+
+    @Test
+    fun `addMaterial revives an archived material`() = runTest {
+        val id = repo.addMaterial("PETG", "Rapid")
+        repo.createProduct("A", "PETG", "Rapid", "שחור", "", 1000, "").also {
+            db.spoolDao().insertSpool(SpoolEntity(productId = it, orderId = null, status = SpoolStatus.SEALED, amsSlot = null))
+            repo.removeProduct(it)
+        }
+        assertEquals(RemoveResult.ARCHIVED, repo.removeMaterial(id))
+        assertEquals(id, repo.addMaterial("PETG", "Rapid"))
+        assertTrue(repo.materials.first().any { it.id == id })
+    }
+
+    @Test
+    fun `addMaterial falls back to a legacy material with the composed name`() = runTest {
+        db.catalogDao().insertMaterial(com.amir.filamenttracker.data.db.MaterialEntity(name = "PETG Rapid", family = "Other", variant = "X"))
+        val legacy = db.catalogDao().materialByName("PETG Rapid")!!.id
+        assertEquals(legacy, repo.addMaterial("PETG", "Rapid"))
+    }
+
+    @Test
+    fun `editing onto the composed name of a legacy twin is rejected without touching the database`() = runTest {
+        val dao = db.catalogDao()
+        val rapidPetg = dao.insertMaterial(MaterialEntity(name = "Rapid PETG", family = "PETG", variant = "Rapid"))
+        val petgRapid = dao.insertMaterial(MaterialEntity(name = "PETG Rapid", family = "PETG", variant = "Rapid"))
+        val error = runCatching { repo.updateMaterial(rapidPetg, "PETG", "Rapid") }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertEquals("Rapid PETG", dao.material(rapidPetg)!!.name)
+        assertEquals("PETG Rapid", dao.material(petgRapid)!!.name)
+    }
+
+    @Test
+    fun `a case-only family change renames the spelling of the family targets`() = runTest {
+        repo.removeMaterial(db.catalogDao().materialByName("PETG")!!.id)
+        val id = repo.addMaterial("petg", "Rapid")
+        val black = repo.addColor("שחור")
+        db.stockDao().upsert(StockTargetEntity("petg", black, 2))
+        repo.updateMaterial(id, "PETG", "Rapid")
+        val rows = db.stockDao().targetRows().first().filter { it.minSealed != null }
+        assertEquals(listOf("PETG"), rows.map { it.family })
+        assertEquals(listOf(2), rows.map { it.minSealed })
+    }
+
+    @Test
+    fun `removing one material of a family keeps the family targets`() = runTest {
+        val rapid = repo.addMaterial("PETG", "Rapid")
+        repo.createProduct("A", "PETG", "", "שחור", "", 1000, "")
+        val black = db.catalogDao().colorByName("שחור")!!.id
+        db.stockDao().upsert(StockTargetEntity("PETG", black, 1))
+
+        assertEquals(RemoveResult.DELETED, repo.removeMaterial(rapid))
+        assertEquals(listOf(1), db.stockDao().targetRows().first().mapNotNull { it.minSealed })
+    }
+
+    @Test
+    fun `removing the last material of a family drops its targets`() = runTest {
+        val petg = repo.addMaterial("PETG")
+        val black = repo.addColor("שחור")
+        db.stockDao().upsert(StockTargetEntity("PETG", black, 1))
+        assertEquals(RemoveResult.DELETED, repo.removeMaterial(petg))
+        assertTrue(db.stockDao().targetRows().first().none { it.minSealed != null })
+    }
+
+    @Test
+    fun `updateMaterial recomputes the name`() = runTest {
+        val id = repo.addMaterial("PETG", "Rapid")
+        repo.updateMaterial(id, "PETG", "Matte")
+        val m = repo.materials.first().single { it.id == id }
+        assertEquals("PETG Matte", m.name)
+        assertEquals("PETG", m.family)
+        assertEquals("Matte", m.variant)
+    }
+
+    @Test
+    fun `updateMaterial moves family targets along when the family is renamed`() = runTest {
+        repo.removeMaterial(db.catalogDao().materialByName("PETG")!!.id) // the seeded plain PETG
+        val id = repo.addMaterial("PETG", "Rapid")
+        val black = repo.addColor("שחור")
+        db.stockDao().upsert(StockTargetEntity("PETG", black, 2))
+        repo.updateMaterial(id, "PET-G", "Rapid")
+        assertEquals(listOf("PET-G"), db.stockDao().targetRows().first().filter { it.minSealed != null }.map { it.family })
+    }
+
+    @Test
+    fun `renaming a family onto one with a target merges to the highest minimum`() = runTest {
+        for ((destFamily, destMin, expectedFamily) in listOf(Triple("PETG", 1, "PETG"), Triple("petg", 1, "petg"), Triple("PETG", 5, "PETG"))) {
+            val black = repo.addColor("שחור$destFamily$destMin")
+            val abs = repo.addMaterial("ABS")
+            db.stockDao().upsert(StockTargetEntity(destFamily, black, destMin))
+            db.stockDao().upsert(StockTargetEntity("ABS", black, 3))
+            repo.updateMaterial(abs, "PETG", "HF")
+            val rows = db.stockDao().targetRows().first().filter { it.colorId == black && it.minSealed != null }
+            assertEquals(1, rows.size)
+            assertEquals(expectedFamily, rows.single().family)
+            assertEquals(maxOf(3, destMin), rows.single().minSealed)
+            repo.removeMaterial(abs)
+            db.stockDao().deleteForColor(black)
+        }
+    }
+
+    @Test
+    fun `brands are distinct ignoring case, sorted, and include archived products`() = runTest {
+        repo.createProduct("Sunlu", "PLA", "", "שחור", "", 1000, "")
+        repo.createProduct("sunlu", "PLA", "", "לבן", "", 1000, "")
+        val archived = repo.createProduct("Bambu", "PETG", "", "לבן", "", 1000, "")
+        repo.createProduct("Elegoo", "PLA", "", "אדום", "", 1000, "")
+        db.spoolDao().insertSpool(SpoolEntity(productId = archived, orderId = null, status = SpoolStatus.SEALED, amsSlot = null))
+        assertEquals(RemoveResult.ARCHIVED, repo.removeProduct(archived))
+        assertEquals(listOf("Bambu", "Elegoo", "Sunlu"), repo.brands.first())
     }
 }

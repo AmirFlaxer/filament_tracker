@@ -27,4 +27,4 @@ data class SpoolChange(
 /** Stock is counted per material+color, regardless of brand. */
 data class StockKey(val materialId: Long, val colorId: Long)
 
-data class StockTarget(val key: StockKey, val minSealed: Int)
+data class StockTarget<K>(val key: K, val minSealed: Int)

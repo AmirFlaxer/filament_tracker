@@ -16,8 +16,17 @@ class StockCalculatorTest {
     private val black = StockKey(materialId = 1, colorId = 10)
     private val white = StockKey(materialId = 1, colorId = 11)
 
-    private fun alertsFor(target: StockTarget, vararg statuses: SpoolStatus) =
+    private fun alertsFor(target: StockTarget<StockKey>, vararg statuses: SpoolStatus) =
         StockCalculator.alerts(StockCalculator.count(statuses.map { target.key to it }), listOf(target))
+
+    @Test
+    fun `calculator works with a string key`() {
+        val counts = StockCalculator.count(listOf("PETG" to SEALED, "PETG" to ORDERED))
+        assertEquals(StockCount(available = 1, sealed = 1, onTheWay = 1), counts["PETG"])
+        val alerts = StockCalculator.alerts(counts, listOf(StockTarget("PETG", 2)))
+        assertEquals(listOf(AlertKind.ON_THE_WAY), alerts.map { it.kind })
+        assertEquals("PETG", alerts.single().key)
+    }
 
     @Test
     fun `count splits statuses and ignores finished`() {

@@ -42,13 +42,13 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
             }
             if (rows.isEmpty()) {
                 item {
-                    Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר וצבע.", Modifier.padding(16.dp))
+                    Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר ראשי וצבע.", Modifier.padding(16.dp))
                 }
             }
-            items(rows, key = { "${it.materialId}-${it.colorId}" }) { row ->
+            items(rows, key = { "${it.family}-${it.colorId}" }) { row ->
                 val tracked = row.minSealed != null
                 ListItem(
-                    headlineContent = { Text("${row.materialName} ${row.colorName}") },
+                    headlineContent = { Text("${row.family} ${row.colorName}") },
                     supportingContent = { if (tracked) Text(if (row.minSealed!! > 0) "התראה כשיש פחות מ-${row.minSealed} סגורים" else "התראה רק כשנגמר") },
                     leadingContent = { ColorDot(row.colorHex) },
                     trailingContent = {

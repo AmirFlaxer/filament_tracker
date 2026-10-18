@@ -33,7 +33,8 @@ import com.amir.filamenttracker.domain.ColorHex
 
 data class NewProductInput(
     val brand: String,
-    val materialName: String,
+    val materialFamily: String,
+    val materialVariant: String,
     val colorName: String,
     val colorHex: String,
     val weightGrams: Int,
@@ -41,27 +42,45 @@ data class NewProductInput(
 )
 
 /**
- * Material and color are typed as names: existing ones can be picked from chips, and a new
- * name creates a new material or color (CatalogRepository merges names that already exist).
+ * Main material, sub-type and color are typed as names: existing ones can be picked from chips,
+ * and a new name creates a new material or color (CatalogRepository merges ones that already exist).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NewProductDialog(
     materials: List<MaterialEntity>,
     colors: List<ColorEntity>,
+    brands: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (NewProductInput) -> Unit,
 ) {
     var brand by rememberSaveable { mutableStateOf("") }
-    var material by rememberSaveable { mutableStateOf(materials.firstOrNull()?.name ?: "") }
+    var family by rememberSaveable { mutableStateOf(materials.firstOrNull()?.family ?: "") }
+    var variant by rememberSaveable { mutableStateOf("") }
     var color by rememberSaveable { mutableStateOf("") }
     var hex by rememberSaveable { mutableStateOf("") }
     var weight by rememberSaveable { mutableStateOf("1000") }
     var note by rememberSaveable { mutableStateOf("") }
 
+    val families = materials.map { it.family }.distinctBy { it.uppercase() }
+    val variants = materials
+        .filter { it.family.equals(family.trim(), ignoreCase = true) && it.variant.isNotBlank() }
+        .map { it.variant }.distinctBy { it.uppercase() }
+
     val weightValue = weight.toIntOrNull() ?: 0
     val hexValid = runCatching { ColorHex.normalize(hex) }.isSuccess
-    val canSave = brand.isNotBlank() && material.isNotBlank() && color.isNotBlank() && weightValue > 0 && hexValid
+    // A variant only makes sense inside its family: when the family changes, drop a variant the new one lacks.
+    fun changeFamily(newFamily: String) {
+        if (!newFamily.trim().equals(family.trim(), ignoreCase = true) &&
+            materials.none {
+                it.family.equals(newFamily.trim(), ignoreCase = true) && it.variant.equals(variant.trim(), ignoreCase = true)
+            }
+        ) {
+            variant = ""
+        }
+        family = newFamily
+    }
+    val canSave = brand.isNotBlank() && family.isNotBlank() && color.isNotBlank() && weightValue > 0 && hexValid
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -72,10 +91,21 @@ fun NewProductDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(brand, { brand = it }, label = { Text("מותג") }, singleLine = true)
-                OutlinedTextField(material, { material = it }, label = { Text("חומר") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    materials.forEach { m ->
-                        FilterChip(selected = material == m.name, onClick = { material = m.name }, label = { Text(m.name) })
+                    brands.forEach { b ->
+                        FilterChip(selected = brand == b, onClick = { brand = b }, label = { Text(b) })
+                    }
+                }
+                OutlinedTextField(family, { changeFamily(it) }, label = { Text("חומר ראשי") }, singleLine = true)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    families.forEach { f ->
+                        FilterChip(selected = family.trim().equals(f, ignoreCase = true), onClick = { changeFamily(f) }, label = { Text(f) })
+                    }
+                }
+                OutlinedTextField(variant, { variant = it }, label = { Text("תת-סוג, לא חובה") }, singleLine = true)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    variants.forEach { v ->
+                        FilterChip(selected = variant.trim().equals(v, ignoreCase = true), onClick = { variant = v }, label = { Text(v) })
                     }
                 }
                 OutlinedTextField(color, { color = it }, label = { Text("צבע") }, singleLine = true)
@@ -109,7 +139,7 @@ fun NewProductDialog(
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onConfirm(NewProductInput(brand, material, color, hex, weightValue, note)) },
+                onClick = { onConfirm(NewProductInput(brand, family, variant, color, hex, weightValue, note)) },
             ) { Text("שמור") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("ביטול") } },

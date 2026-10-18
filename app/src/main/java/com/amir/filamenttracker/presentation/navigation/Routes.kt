@@ -1,5 +1,7 @@
 package com.amir.filamenttracker.presentation.navigation
 
+import android.net.Uri
+
 object Routes {
     const val INVENTORY = "inventory"
     const val AMS = "ams"
@@ -16,6 +18,6 @@ object Routes {
     const val ORDER = "order/{orderId}"
     fun order(id: Long) = "order/$id"
 
-    const val COLOR_SPOOLS = "color/{materialId}/{colorId}"
-    fun colorSpools(materialId: Long, colorId: Long) = "color/$materialId/$colorId"
+    const val COLOR_SPOOLS = "color/{family}/{colorId}"
+    fun colorSpools(family: String, colorId: Long) = "color/${Uri.encode(family)}/$colorId"
 }

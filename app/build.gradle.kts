@@ -14,8 +14,8 @@ android {
         applicationId = "com.amir.filamenttracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     buildTypes {
@@ -35,6 +35,11 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    sourceSets {
+        // Robolectric reads the merged debug assets; the "test" source set is not merged into them.
+        getByName("debug").assets.srcDir("$projectDir/schemas")
     }
 
     testOptions {
@@ -70,11 +75,13 @@ dependencies {
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.androidx.datastore.preferences)
     ksp(libs.room.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
+    testImplementation(libs.room.testing)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)

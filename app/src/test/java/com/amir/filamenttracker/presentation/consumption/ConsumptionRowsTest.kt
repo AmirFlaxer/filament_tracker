@@ -14,7 +14,7 @@ class ConsumptionRowsTest {
     private fun finish(colorId: Long, color: String, at: Instant) = FinishRow(1, "PLA", colorId, color, null, at)
     private fun spool(colorId: Long, status: SpoolStatus) = SpoolRow(
         spoolId = colorId * 100, status = status, amsSlot = null, orderId = null, productId = 1, brand = "X",
-        weightGrams = 1000, materialId = 1, materialName = "PLA", colorId = colorId, colorName = "c", colorHex = null,
+        weightGrams = 1000, materialId = 1, materialName = "PLA", materialFamily = "PLA", materialVariant = "", colorId = colorId, colorName = "c", colorHex = null,
     )
 
     @Test

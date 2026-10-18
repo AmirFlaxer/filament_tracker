@@ -1,36 +1,178 @@
 package com.amir.filamenttracker.presentation.inventory
 
+import com.amir.filamenttracker.data.AlertRow
 import com.amir.filamenttracker.data.db.SpoolRow
+import com.amir.filamenttracker.domain.AlertKind
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.domain.model.SpoolStatus.FINISHED
 import com.amir.filamenttracker.domain.model.SpoolStatus.IN_USE
+import com.amir.filamenttracker.domain.model.SpoolStatus.OPEN_STORED
 import com.amir.filamenttracker.domain.model.SpoolStatus.ORDERED
 import com.amir.filamenttracker.domain.model.SpoolStatus.SEALED
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.amir.filamenttracker.domain.composeMaterialName
 
 class InventoryGroupingTest {
     private var nextId = 1L
-    private fun row(material: String, materialId: Long, color: String, colorId: Long, status: SpoolStatus) = SpoolRow(
-        spoolId = nextId++, status = status, amsSlot = null, orderId = null, productId = 1, brand = "X",
-        weightGrams = 1000, materialId = materialId, materialName = material,
+    private fun row(
+        family: String, variant: String, materialId: Long, color: String, colorId: Long, status: SpoolStatus, slot: Int? = null,
+    ) = SpoolRow(
+        spoolId = nextId++, status = status, amsSlot = slot, orderId = null, productId = 1, brand = "X",
+        weightGrams = 1000, materialId = materialId,
+        materialName = composeMaterialName(family, variant), materialFamily = family, materialVariant = variant,
         colorId = colorId, colorName = color, colorHex = null,
     )
 
+    private fun missing(family: String, color: String, colorId: Long) = AlertRow(
+        kind = AlertKind.MISSING, family = family,
+        colorId = colorId, colorName = color, colorHex = null,
+        count = com.amir.filamenttracker.domain.StockCount(0, 0, 0), minSealed = 1,
+    )
+
+    private val sample = listOf(
+        row("PLA", "", 1, "לבן", 10, IN_USE, slot = 2),
+        row("PLA", "", 1, "לבן", 10, SEALED),
+        row("PLA", "Matte", 3, "לבן", 10, OPEN_STORED),
+        row("PETG", "", 2, "לבן", 10, ORDERED),
+        row("PETG", "", 2, "שחור", 11, SEALED),
+        row("PETG", "", 2, "שחור", 11, FINISHED),
+    )
+
     @Test
-    fun `groups by material then color, counts statuses, and drops finished`() {
-        val sections = groupSpools(
-            listOf(
-                row("PLA", 1, "שחור", 10, IN_USE),
-                row("PLA", 1, "שחור", 10, SEALED),
-                row("PLA", 1, "שחור", 10, SEALED),
-                row("PLA", 1, "לבן", 11, ORDERED),
-                row("PETG", 2, "שקוף", 12, FINISHED),
-            ),
+    fun `by material counts every variant of a family and color in one row`() {
+        val sections = byMaterial(sample)
+        assertEquals(listOf("PETG", "PLA"), sections.map { it.title })
+        val pla = sections.single { it.title == "PLA" }
+        assertEquals(listOf("לבן"), pla.rows.map { it.label })
+        assertEquals("PLA", pla.rows.single().family)
+        assertEquals(mapOf(IN_USE to 1, SEALED to 1, OPEN_STORED to 1), pla.rows.single().counts)
+    }
+
+    @Test
+    fun `a rapid variant of PETG goes in the PETG column without showing the variant`() {
+        val spools = sample + row("PETG", "Rapid", 4, "אפור", 12, SEALED)
+        val section = byMaterial(spools).single { it.title == "PETG" }
+        assertTrue(section.rows.any { it.label == "אפור" })
+        assertTrue(section.rows.none { it.label.contains("Rapid") })
+        assertEquals(listOf("PETG", "PLA"), materialTable(spools, emptyList()).families)
+        assertEquals(listOf("PETG", "PLA"), byMaterial(spools).map { it.title })
+    }
+
+    @Test
+    fun `by color puts every material of a color together`() {
+        val sections = byColor(sample)
+        assertEquals(listOf("לבן", "שחור"), sections.map { it.title })
+        assertEquals(listOf("PETG", "PLA"), sections.first().rows.map { it.label })
+        assertEquals(3, sections.first().rows.single { it.label == "PLA" }.counts.values.sum())
+    }
+
+    @Test
+    fun `two gray PETG materials give one PETG row in every view`() {
+        val spools = listOf(
+            row("PETG", "", 2, "אפור", 12, SEALED),
+            row("PETG", "Rapid", 4, "אפור", 12, SEALED),
+            row("PETG", "Rapid", 4, "אפור", 12, IN_USE, slot = 1),
         )
-        assertEquals(listOf("PLA"), sections.map { it.materialName })
-        val colors = sections.single().colors
-        assertEquals(listOf("לבן", "שחור"), colors.map { it.colorName })
-        assertEquals(mapOf(IN_USE to 1, SEALED to 2), colors.single { it.colorName == "שחור" }.counts)
+        val byMat = byMaterial(spools).single { it.title == "PETG" }.rows.single()
+        assertEquals("אפור", byMat.label)
+        assertEquals(mapOf(SEALED to 2, IN_USE to 1), byMat.counts)
+
+        val table = statusTable(spools).single { it.family == "PETG" }.rows.single()
+        assertEquals("אפור", table.label)
+        assertEquals(2, table.sealed)
+        assertEquals(1, table.inUse)
+        assertEquals(3, table.total)
+
+        val gray = byColor(spools).single { it.title == "אפור" }.rows.single()
+        assertEquals("PETG", gray.label)
+        assertEquals(3, gray.counts.values.sum())
+
+        val sealedRow = byStatus(spools).first { it.title == "סגורים" }.rows.single()
+        assertEquals("PETG אפור", sealedRow.label)
+        assertEquals(mapOf(SEALED to 2), sealedRow.counts)
+
+        assertEquals(3, materialTable(spools, emptyList()).rows.single().cells.single()!!.total)
+    }
+
+    @Test
+    fun `by status orders sections and lists slots`() {
+        val sections = byStatus(sample)
+        assertEquals(listOf("בשימוש", "פתוחים באחסון", "סגורים", "בדרך"), sections.map { it.title })
+        val inUse = sections.first().rows.single()
+        assertEquals("PLA לבן", inUse.label)
+        assertEquals(listOf(2), inUse.slots)
+        assertEquals(mapOf(IN_USE to 1), inUse.counts)
+    }
+
+    @Test
+    fun `status table totals include on the way`() {
+        val sections = statusTable(sample)
+        val petg = sections.single { it.family == "PETG" }.rows.single { it.label == "לבן" }
+        assertEquals(1, petg.ordered)
+        assertEquals(1, petg.total)
+        val pla = sections.single { it.family == "PLA" }.rows.single { it.label == "לבן" }
+        assertEquals(1, pla.inUse)
+        assertEquals(1, pla.sealed)
+        assertEquals(1, pla.open)
+        assertEquals(3, pla.total)
+    }
+
+    @Test
+    fun `material table merges variants into one cell`() {
+        val table = materialTable(sample, emptyList())
+        assertEquals(listOf("PETG", "PLA"), table.families)
+        val white = table.rows.single { it.colorName == "לבן" }
+        val pla = white.cells[1]!!
+        assertEquals(3, pla.total)
+    }
+
+    @Test
+    fun `material table shows missing only for an empty cell`() {
+        val table = materialTable(sample, listOf(missing("PETG", "כחול", 12)))
+        val blue = table.rows.single { it.colorName == "כחול" }
+        assertTrue(blue.cells[0]!!.missing)
+        assertEquals(0, blue.cells[0]!!.total)
+        assertNull(blue.cells[1])
+
+        val withMatte = materialTable(sample, listOf(missing("PLA", "לבן", 10)))
+        val whitePla = withMatte.rows.single { it.colorName == "לבן" }.cells[1]
+        assertNotNull(whitePla)
+        assertFalse(whitePla!!.missing)
+    }
+
+    @Test
+    fun `every view counts the same spools`() {
+        assertEquals(5, byMaterial(sample).sumOf { s -> s.rows.sumOf { it.counts.values.sum() } })
+        assertEquals(5, byColor(sample).sumOf { s -> s.rows.sumOf { it.counts.values.sum() } })
+        assertEquals(5, byStatus(sample).sumOf { s -> s.rows.sumOf { it.counts.values.sum() } })
+        assertEquals(5, statusTable(sample).sumOf { s -> s.rows.sumOf { it.total } })
+        assertEquals(5, materialTable(sample, emptyList()).rows.sumOf { r -> r.cells.sumOf { it?.total ?: 0 } })
+    }
+
+    @Test
+    fun `family spelling comes from the first material alphabetically`() {
+        val spools = listOf(row("pla", "", 5, "אדום", 20, SEALED), row("PLA", "", 6, "אדום", 20, SEALED))
+        assertEquals(listOf("PLA"), byMaterial(spools).map { it.title })
+    }
+
+    @Test
+    fun `list row keys are distinct in every view when two families share a color`() {
+        val spools = listOf(
+            row("PLA", "", 1, "לבן", 10, SEALED),
+            row("PETG", "", 2, "לבן", 10, SEALED),
+            row("PETG", "Rapid", 4, "לבן", 10, SEALED),
+            row("PLA", "", 1, "שחור", 11, SEALED),
+        )
+        listOf(byMaterial(spools), byColor(spools), byStatus(spools)).forEach { sections ->
+            val keys = sections.flatMap { s -> s.rows.map { listRowKey(s, it) } }
+            assertEquals(keys.size, keys.toSet().size)
+        }
+        val tableKeys = statusTable(spools).flatMap { s -> s.rows.map { statusRowKey(s, it) } }
+        assertEquals(tableKeys.size, tableKeys.toSet().size)
     }
 }

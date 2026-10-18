@@ -20,6 +20,7 @@ class NewOrderViewModel @Inject constructor(
 ) : BaseViewModel() {
     val materials = catalog.materials.asState(emptyList())
     val colors = catalog.colors.asState(emptyList())
+    val brands = catalog.brands.asState(emptyList())
     val products = catalog.products.asState(emptyList())
 
     // Product id to quantity. Map + keeps insertion order, so lines stay in the order added.
@@ -35,7 +36,7 @@ class NewOrderViewModel @Inject constructor(
         quantities.update { if (n <= 0) it - productId else it + (productId to n) }
 
     fun createProductAndAdd(input: NewProductInput) = launchAction {
-        add(catalog.createProduct(input.brand, input.materialName, input.colorName, input.colorHex, input.weightGrams, input.note))
+        add(catalog.createProduct(input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note))
         "המוצר נשמר"
     }
 

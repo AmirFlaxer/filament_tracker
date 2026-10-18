@@ -1,6 +1,7 @@
 package com.amir.filamenttracker.presentation.inventory
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,18 +10,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,20 +32,25 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.data.AlertRow
 import com.amir.filamenttracker.domain.AlertKind
+import com.amir.filamenttracker.data.db.SpoolRow
+import com.amir.filamenttracker.domain.model.InventoryView
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.NoInsets
-import com.amir.filamenttracker.presentation.common.SectionHeader
-import com.amir.filamenttracker.presentation.common.countLabel
 import com.amir.filamenttracker.presentation.common.title
 
 @Composable
 fun InventoryScreen(
-    onColorClick: (materialId: Long, colorId: Long) -> Unit,
+    onColorClick: (family: String, colorId: Long) -> Unit,
     onAddExisting: () -> Unit,
     vm: InventoryViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+
+    val view = state.view
+    val spools = state.spools
+    // Grouping is computed once per data or view change, not on every recomposition.
+    val content = remember(spools, state.alerts, view) { view?.let { buildContent(it, spools, state.alerts) } }
 
     Scaffold(
         contentWindowInsets = NoInsets,
@@ -55,31 +63,65 @@ fun InventoryScreen(
         },
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
-            item { AlertsCard(state.alerts) }
-            if (state.loaded && state.sections.isEmpty()) {
-                item {
-                    Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
-                }
-            }
-            state.sections.forEach { section ->
-                item(key = "m-${section.materialName}") { SectionHeader(section.materialName) }
-                items(section.colors, key = { "c-${it.materialId}-${it.colorId}" }) { group ->
-                    ListItem(
-                        headlineContent = { Text(group.colorName) },
-                        supportingContent = { Text(group.countsText()) },
-                        leadingContent = { ColorDot(group.colorHex, size = 28.dp) },
-                        modifier = Modifier.clickable { onColorClick(group.materialId, group.colorId) },
-                    )
+            if (view != null && content != null) {
+                item(key = "alerts") { AlertsCard(state.alerts) }
+                item(key = "view-switcher") { ViewSwitcher(view, vm::select) }
+                if (content.isEmpty(spools)) {
+                    item {
+                        Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
+                    }
+                } else when (content) {
+                    is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.family, it.colorId) }
+                    is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.family, it.colorId) }
+                    is ViewContent.MaterialTableContent -> materialTableItems(content.table) { family, colorId, cell ->
+                        // A missing-only cell has no spools to open.
+                        if (!cell.missing) onColorClick(family, colorId)
+                    }
                 }
             }
         }
     }
 }
 
-private val displayOrder = listOf(SpoolStatus.IN_USE, SpoolStatus.OPEN_STORED, SpoolStatus.SEALED, SpoolStatus.ORDERED)
+private sealed interface ViewContent {
+    data class Lists(val sections: List<ListSection>) : ViewContent
+    data class StatusTable(val sections: List<StatusTableSection>) : ViewContent
+    data class MaterialTableContent(val table: MaterialTable) : ViewContent
+}
 
-private fun ColorGroup.countsText(): String =
-    displayOrder.mapNotNull { status -> counts[status]?.let { countLabel(status, it) } }.joinToString(" · ")
+/** The empty text shows only when this view has nothing to show; the material table can still hold missing rows. */
+private fun ViewContent.isEmpty(spools: List<SpoolRow>): Boolean = when (this) {
+    is ViewContent.MaterialTableContent -> table.rows.isEmpty()
+    else -> spools.none { it.status != SpoolStatus.FINISHED }
+}
+
+private fun buildContent(view: InventoryView, spools: List<SpoolRow>, alerts: List<AlertRow>): ViewContent = when (view) {
+    InventoryView.BY_MATERIAL -> ViewContent.Lists(byMaterial(spools))
+    InventoryView.BY_COLOR -> ViewContent.Lists(byColor(spools))
+    InventoryView.BY_STATUS -> ViewContent.Lists(byStatus(spools))
+    InventoryView.TABLE_STATUS -> ViewContent.StatusTable(statusTable(spools))
+    InventoryView.TABLE_MATERIAL -> ViewContent.MaterialTableContent(materialTable(spools, alerts))
+}
+
+private fun InventoryView.label(): String = when (this) {
+    InventoryView.BY_MATERIAL -> "לפי חומר"
+    InventoryView.BY_COLOR -> "לפי צבע"
+    InventoryView.BY_STATUS -> "לפי מצב"
+    InventoryView.TABLE_STATUS -> "טבלה לפי מצב"
+    InventoryView.TABLE_MATERIAL -> "טבלה לפי חומר"
+}
+
+@Composable
+private fun ViewSwitcher(selected: InventoryView, onSelect: (InventoryView) -> Unit) {
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        InventoryView.entries.forEach { v ->
+            FilterChip(selected = v == selected, onClick = { onSelect(v) }, label = { Text(v.label()) })
+        }
+    }
+}
 
 @Composable
 private fun AlertsCard(alerts: List<AlertRow>) {
@@ -95,7 +137,7 @@ private fun AlertsCard(alerts: List<AlertRow>) {
                         group.forEach { alert ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ColorDot(alert.colorHex, size = 14.dp)
-                                Text("${alert.materialName} ${alert.colorName}")
+                                Text("${alert.family} ${alert.colorName}")
                             }
                         }
                     }

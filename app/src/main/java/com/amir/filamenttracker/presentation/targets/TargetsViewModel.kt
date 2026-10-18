@@ -11,9 +11,9 @@ class TargetsViewModel @Inject constructor(private val stock: StockRepository) :
     val rows = stock.targetRows.asState(emptyList())
 
     fun setTracked(row: TargetRow, tracked: Boolean) = launchAction {
-        if (tracked) stock.setTarget(row.materialId, row.colorId, 1) else stock.removeTarget(row.materialId, row.colorId)
+        if (tracked) stock.setTarget(row.family, row.colorId, 1) else stock.removeTarget(row.family, row.colorId)
         null
     }
 
-    fun setMin(row: TargetRow, min: Int) = launchAction { stock.setTarget(row.materialId, row.colorId, min); null }
+    fun setMin(row: TargetRow, min: Int) = launchAction { stock.setTarget(row.family, row.colorId, min); null }
 }

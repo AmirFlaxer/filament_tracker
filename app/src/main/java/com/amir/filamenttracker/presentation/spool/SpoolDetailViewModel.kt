@@ -22,9 +22,14 @@ data class SpoolDetailState(
     // The creation event (no fromStatus) cannot be undone.
     val canUndo: Boolean get() = events.firstOrNull()?.fromStatus != null
 
-    // Mistaken existing-stock intake: only the creation event, and not from an order.
-    val canDelete: Boolean
-        get() = spool != null && spool.orderId == null && events.size == 1 && events.single().fromStatus == null
+    // An ordered spool is removed with "מחק, לא יגיע" instead.
+    val canDelete: Boolean get() = spool != null && spool.status != SpoolStatus.ORDERED
+}
+
+fun deleteConfirmText(status: SpoolStatus, slot: Int?, orderId: Long?): String = buildString {
+    append("למחוק את הסליל? כל ההיסטוריה שלו תימחק, והוא לא ייספר בתצרוכת. אי אפשר לבטל את זה.")
+    if (status == SpoolStatus.IN_USE && slot != null) append(" חריץ $slot יתפנה.")
+    if (orderId != null) append(" הוא יוסר גם מההזמנה.")
 }
 
 @HiltViewModel
@@ -52,8 +57,8 @@ class SpoolDetailViewModel @Inject constructor(
     fun finish() = launchAction { inventory.finish(spoolId); "סומן שהסתיים" }
     fun undo() = launchAction { inventory.undoLast(spoolId); "הפעולה האחרונה בוטלה" }
 
-    fun deleteUntouched(onDone: () -> Unit) = launchAction {
-        inventory.deleteIfUntouched(spoolId)
+    fun deleteSpool(onDone: () -> Unit) = launchAction {
+        inventory.deleteSpool(spoolId)
         onDone()
         null
     }
