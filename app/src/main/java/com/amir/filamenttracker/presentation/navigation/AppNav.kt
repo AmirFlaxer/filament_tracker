@@ -34,11 +34,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.amir.filamenttracker.presentation.ams.AmsScreen
 import com.amir.filamenttracker.presentation.catalog.CatalogScreen
 import com.amir.filamenttracker.presentation.common.NoInsets
 import com.amir.filamenttracker.presentation.inventory.AddExistingScreen
 import com.amir.filamenttracker.presentation.inventory.ColorSpoolsScreen
 import com.amir.filamenttracker.presentation.inventory.InventoryScreen
+import com.amir.filamenttracker.presentation.spool.SpoolDetailScreen
 import com.amir.filamenttracker.presentation.targets.TargetsScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
@@ -111,7 +113,7 @@ fun AppNav() {
                     onAddExisting = { nav.navigate(Routes.ADD_EXISTING) },
                 )
             }
-            composable(Routes.AMS) { PlaceholderScreen("AMS") }
+            composable(Routes.AMS) { AmsScreen(onSpoolClick = { nav.navigate(Routes.spool(it)) }) }
             composable(Routes.ORDERS) { PlaceholderScreen("הזמנות") }
             composable(Routes.CONSUMPTION) { PlaceholderScreen("תצרוכת") }
             composable(Routes.CATALOG) { CatalogScreen(onBack = { nav.popBackStack() }) }
@@ -121,7 +123,7 @@ fun AppNav() {
             composable(
                 Routes.SPOOL,
                 arguments = listOf(navArgument("spoolId") { type = NavType.LongType }),
-            ) { PlaceholderScreen("סליל") }
+            ) { SpoolDetailScreen(onBack = { nav.popBackStack() }) }
             composable(
                 Routes.ORDER,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType }),
