@@ -125,35 +125,41 @@ class InventoryRepositoryTest {
     }
 
     @Test
-    fun `an untouched existing spool can be deleted with its event`() = runTest {
+    fun `any spool can be deleted with its events, whatever happened to it`() = runTest {
         val id = repo.addExisting(black, 1, SEALED, slot = null).single()
-        repo.deleteIfUntouched(id)
+        repo.loadIntoSlot(id, 1)
+        repo.unload(id)
+        repo.deleteSpool(id)
         assertNull(db.spoolDao().spool(id))
         assertTrue(events(id).isEmpty())
     }
 
     @Test
-    fun `an existing spool with a later event cannot be deleted`() = runTest {
-        val id = repo.addExisting(black, 1, SEALED, slot = null).single()
-        repo.loadIntoSlot(id, 1)
-        try {
-            repo.deleteIfUntouched(id)
-            throw AssertionError("expected SpoolRuleException")
-        } catch (expected: SpoolRuleException) {
-        }
-        assertEquals(IN_USE, spool(id).status)
+    fun `deleting an in-use spool frees its slot`() = runTest {
+        val first = repo.addExisting(black, 1, IN_USE, slot = 1).single()
+        repo.deleteSpool(first)
+        val second = repo.addExisting(white, 1, SEALED, slot = null).single()
+        repo.loadIntoSlot(second, 1)
+        assertEquals(IN_USE, spool(second).status)
+        assertEquals(1, spool(second).amsSlot)
     }
 
     @Test
-    fun `an ordered spool cannot be deleted as untouched`() = runTest {
-        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 1))
-        val id = repo.orderSpools(orderId).first().single().spoolId
-        try {
-            repo.deleteIfUntouched(id)
-            throw AssertionError("expected SpoolRuleException")
-        } catch (expected: SpoolRuleException) {
-        }
-        assertEquals(ORDERED, spool(id).status)
+    fun `an arrived spool from an order can be deleted and leaves the order`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 2))
+        repo.markOrderArrived(orderId)
+        val id = repo.orderSpools(orderId).first().first().spoolId
+        repo.deleteSpool(id)
+        assertEquals(1, repo.orderSpools(orderId).first().size)
+    }
+
+    @Test
+    fun `a finished spool can be deleted`() = runTest {
+        val id = repo.addExisting(black, 1, SEALED, slot = null).single()
+        repo.loadIntoSlot(id, 1)
+        repo.finish(id)
+        repo.deleteSpool(id)
+        assertNull(db.spoolDao().spool(id))
     }
 
     @Test
