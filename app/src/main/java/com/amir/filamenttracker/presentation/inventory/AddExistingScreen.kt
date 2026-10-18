@@ -60,6 +60,7 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
     val products by vm.products.collectAsStateWithLifecycle()
     val materials by vm.materials.collectAsStateWithLifecycle()
     val colors by vm.colors.collectAsStateWithLifecycle()
+    val brands by vm.brands.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val occupants by vm.occupants.collectAsStateWithLifecycle()
     val adding by vm.adding.collectAsStateWithLifecycle()
@@ -173,7 +174,7 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
         )
     }
     if (newProduct) {
-        NewProductDialog(materials, colors, onDismiss = { newProduct = false }) {
+        NewProductDialog(materials, colors, brands, onDismiss = { newProduct = false }) {
             vm.createProduct(it)
             newProduct = false
         }

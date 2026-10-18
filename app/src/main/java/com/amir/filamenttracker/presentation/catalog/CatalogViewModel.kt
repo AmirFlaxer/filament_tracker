@@ -11,6 +11,7 @@ import javax.inject.Inject
 class CatalogViewModel @Inject constructor(private val catalog: CatalogRepository) : BaseViewModel() {
     val materials = catalog.materials.asState(emptyList())
     val colors = catalog.colors.asState(emptyList())
+    val brands = catalog.brands.asState(emptyList())
     val products = catalog.products.asState(emptyList())
 
     fun addMaterial(name: String) = launchAction { catalog.addMaterial(name); "החומר נשמר" }

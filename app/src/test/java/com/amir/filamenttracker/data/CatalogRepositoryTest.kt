@@ -113,4 +113,15 @@ class CatalogRepositoryTest {
         val petg = db.catalogDao().materialByName("PETG")!!.id
         repo.renameMaterial(petg, "pla")
     }
+
+    @Test
+    fun `brands are distinct ignoring case, sorted, and include archived products`() = runTest {
+        repo.createProduct("Sunlu", "PLA", "שחור", "", 1000, "")
+        repo.createProduct("sunlu", "PLA", "לבן", "", 1000, "")
+        val archived = repo.createProduct("Bambu", "PETG", "לבן", "", 1000, "")
+        repo.createProduct("Elegoo", "PLA", "אדום", "", 1000, "")
+        db.spoolDao().insertSpool(SpoolEntity(productId = archived, orderId = null, status = SpoolStatus.SEALED, amsSlot = null))
+        assertEquals(RemoveResult.ARCHIVED, repo.removeProduct(archived))
+        assertEquals(listOf("Bambu", "Elegoo", "Sunlu"), repo.brands.first())
+    }
 }

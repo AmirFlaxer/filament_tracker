@@ -52,6 +52,7 @@ private const val TARGETS_WARNING = " אם יש בו שימוש הוא יועב�
 fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
     val materials by vm.materials.collectAsStateWithLifecycle()
     val colors by vm.colors.collectAsStateWithLifecycle()
+    val brands by vm.brands.collectAsStateWithLifecycle()
     val products by vm.products.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
@@ -114,7 +115,7 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
     val close = { dialog = null }
     when (val d = dialog) {
         null -> Unit
-        CatalogDialog.NewProduct -> NewProductDialog(materials, colors, onDismiss = close) {
+        CatalogDialog.NewProduct -> NewProductDialog(materials, colors, brands, onDismiss = close) {
             vm.createProduct(it)
             close()
         }

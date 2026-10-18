@@ -52,6 +52,7 @@ fun NewOrderScreen(onBack: () -> Unit, vm: NewOrderViewModel = hiltViewModel()) 
     val products by vm.products.collectAsStateWithLifecycle()
     val materials by vm.materials.collectAsStateWithLifecycle()
     val colors by vm.colors.collectAsStateWithLifecycle()
+    val brands by vm.brands.collectAsStateWithLifecycle()
     val lines by vm.lines.collectAsStateWithLifecycle()
     val saving by vm.saving.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
@@ -133,7 +134,7 @@ fun NewOrderScreen(onBack: () -> Unit, vm: NewOrderViewModel = hiltViewModel()) 
         )
     }
     if (newProduct) {
-        NewProductDialog(materials, colors, onDismiss = { newProduct = false }) {
+        NewProductDialog(materials, colors, brands, onDismiss = { newProduct = false }) {
             vm.createProductAndAdd(it)
             newProduct = false
         }

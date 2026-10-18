@@ -49,6 +49,7 @@ data class NewProductInput(
 fun NewProductDialog(
     materials: List<MaterialEntity>,
     colors: List<ColorEntity>,
+    brands: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (NewProductInput) -> Unit,
 ) {
@@ -72,6 +73,11 @@ fun NewProductDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(brand, { brand = it }, label = { Text("מותג") }, singleLine = true)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    brands.forEach { b ->
+                        FilterChip(selected = brand == b, onClick = { brand = b }, label = { Text(b) })
+                    }
+                }
                 OutlinedTextField(material, { material = it }, label = { Text("חומר") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     materials.forEach { m ->

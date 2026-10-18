@@ -13,6 +13,10 @@ interface CatalogDao {
     @Query("SELECT * FROM colors WHERE archived = 0 ORDER BY name")
     fun activeColors(): Flow<List<ColorEntity>>
 
+    // GROUP BY (not DISTINCT) so the earliest-created spelling comes first, deterministically.
+    @Query("SELECT brand FROM products GROUP BY brand ORDER BY MIN(id)")
+    fun allBrands(): Flow<List<String>>
+
     @Query(
         """
         SELECT p.id AS productId, p.brand AS brand, p.weightGrams AS weightGrams, p.note AS note,

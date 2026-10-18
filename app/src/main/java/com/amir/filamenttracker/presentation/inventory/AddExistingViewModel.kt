@@ -31,6 +31,7 @@ class AddExistingViewModel @Inject constructor(
 ) : BaseViewModel() {
     val materials = catalog.materials.asState(emptyList())
     val colors = catalog.colors.asState(emptyList())
+    val brands = catalog.brands.asState(emptyList())
     val products = catalog.products.asState(emptyList())
 
     private val selectedId = MutableStateFlow<Long?>(null)

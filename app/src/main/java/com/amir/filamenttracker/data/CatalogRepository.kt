@@ -8,6 +8,7 @@ import com.amir.filamenttracker.data.db.ProductEntity
 import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.domain.ColorHex
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +22,11 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     val materials: Flow<List<MaterialEntity>> = dao.activeMaterials()
     val colors: Flow<List<ColorEntity>> = dao.activeColors()
     val products: Flow<List<ProductRow>> = dao.activeProducts()
+
+    /** Every brand ever used (archived products included), unique ignoring case, first spelling kept. */
+    val brands: Flow<List<String>> = dao.allBrands().map { names ->
+        names.distinctBy { it.lowercase() }.sortedWith(String.CASE_INSENSITIVE_ORDER)
+    }
 
     /** Id of the material with this name: the existing one (revived if archived) or a new one. */
     suspend fun addMaterial(name: String): Long = db.withTransaction {
