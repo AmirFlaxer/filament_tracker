@@ -122,7 +122,7 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
 
     // NOCASE lookups handle Latin case; this handles spaces, so "PLA " and "pla" are one row.
     private fun cleanName(raw: String, what: String = "שם"): String {
-        val clean = raw.trim().replace(Regex("\\s+"), " ")
+        val clean = raw.trim().replace(Regex("[\\s\\p{Z}]+"), " ")
         require(clean.isNotEmpty()) { "$what לא יכול להיות ריק" }
         return clean
     }

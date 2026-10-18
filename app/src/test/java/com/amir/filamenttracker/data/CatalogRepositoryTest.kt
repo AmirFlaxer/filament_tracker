@@ -33,6 +33,14 @@ class CatalogRepositoryTest {
     }
 
     @Test
+    fun `non-breaking space in a name merges with a normal space`() = runTest {
+        val before = repo.materials.first().size
+        val id = repo.addMaterial("PLA Pro")
+        assertEquals(id, repo.addMaterial("PLA\u00A0Pro"))
+        assertEquals(before + 1, repo.materials.first().size)
+    }
+
+    @Test
     fun `color names are trimmed and inner spaces collapsed`() = runTest {
         val id = repo.addColor("ירוק ים")
         assertEquals(id, repo.addColor("  ירוק   ים "))
