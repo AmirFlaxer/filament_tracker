@@ -1,7 +1,5 @@
 package com.amir.filamenttracker.presentation.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -24,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -37,6 +34,7 @@ import androidx.navigation.navArgument
 import com.amir.filamenttracker.presentation.ams.AmsScreen
 import com.amir.filamenttracker.presentation.catalog.CatalogScreen
 import com.amir.filamenttracker.presentation.common.NoInsets
+import com.amir.filamenttracker.presentation.consumption.ConsumptionScreen
 import com.amir.filamenttracker.presentation.inventory.AddExistingScreen
 import com.amir.filamenttracker.presentation.inventory.ColorSpoolsScreen
 import com.amir.filamenttracker.presentation.inventory.InventoryScreen
@@ -123,7 +121,7 @@ fun AppNav() {
                     onNewOrder = { nav.navigate(Routes.NEW_ORDER) },
                 )
             }
-            composable(Routes.CONSUMPTION) { PlaceholderScreen("תצרוכת") }
+            composable(Routes.CONSUMPTION) { ConsumptionScreen() }
             composable(Routes.CATALOG) { CatalogScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.TARGETS) { TargetsScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.ADD_EXISTING) { AddExistingScreen(onBack = { nav.popBackStack() }) }
@@ -145,10 +143,4 @@ fun AppNav() {
             ) { ColorSpoolsScreen(onBack = { nav.popBackStack() }, onSpoolClick = { nav.navigate(Routes.spool(it)) }) }
         }
     }
-}
-
-/** Removed in Task 15, once every route has its real screen. */
-@Composable
-private fun PlaceholderScreen(title: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(title) }
 }
