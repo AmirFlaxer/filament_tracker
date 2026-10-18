@@ -5578,7 +5578,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 16: אימות מקצה לקצה ותיעוד
 
 **Files:**
-- Create: `README.md`, `SPEC.md`, `current_focus.md`
+- Create: `README.md`, `SPEC.md`
+- Modify: `current_focus.md` (נוצר בסשן התכנון. להוסיף בלוק-סשן חדש בראש, מעל הקיים)
 - No code changes, unless the walkthrough finds a bug. A bug goes back to the task that owns the code: fix it with a test there, then repeat this task.
 
 **Interfaces:**
@@ -5657,7 +5658,7 @@ Kotlin, Jetpack Compose, Hilt, Room. כל הנתונים מקומיים במכש
 
 `SPEC.md`: מצב נוכחי (גרסה 0.1.0, מה עובד), הפניה למסמך העיצוב במקום לשכפל אותו, ו"הצעד הבא". הצעד הבא הוא רשימת סעיף 9 במסמך העיצוב, וחילוץ הזמנה מטקסט ראשון בתור. כל טבלה בעברית עטופה ב-`<div dir="rtl" align="right">`.
 
-`current_focus.md`: בלוק סשן אחד בראש הקובץ, עם כותרת-אזהרה כמו ב-`c:\Projects\new_idea\current_focus.md`. הבלוק מתאר מה נבנה, מספר הבדיקות, תוצאת המעבר הידני, ומה פתוח.
+`current_focus.md`: בלוק סשן חדש בראש הקובץ, מתחת לכותרת-האזהרה הקיימת. הבלוק מתאר מה נבנה, מספר הבדיקות, תוצאת המעבר הידני, ומה פתוח.
 
 - [ ] **Step 5: Commit ו-push**
 
