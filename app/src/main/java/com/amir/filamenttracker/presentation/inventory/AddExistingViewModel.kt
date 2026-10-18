@@ -45,15 +45,18 @@ class AddExistingViewModel @Inject constructor(
     private val _lastAdded = MutableStateFlow<String?>(null)
     val lastAdded: StateFlow<String?> = _lastAdded
 
-    fun select(productId: Long) {
+    /** Single place that changes the selection; the confirmation card only describes the product it was added for. */
+    private fun setSelected(productId: Long) {
+        if (selectedId.value != productId) _lastAdded.value = null
         selectedId.value = productId
-        _lastAdded.value = null
     }
 
+    fun select(productId: Long) = setSelected(productId)
+
     fun createProduct(input: NewProductInput) = launchAction {
-        selectedId.value = catalog.createProduct(
+        setSelected(catalog.createProduct(
             input.brand, input.materialName, input.colorName, input.colorHex, input.weightGrams, input.note,
-        )
+        ))
         "המוצר נשמר"
     }
 
