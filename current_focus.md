@@ -14,7 +14,7 @@
 - בדיקות: 122 בדיקות-יחידה ירוקות (`./gradlew testDebugUnitTest assembleDebug` הצליח). גרסה 0.2.0 (`versionCode = 2`).
 - מסמכים: `SPEC.md` עודכן, עיצוב ב-`docs/superpowers/specs/2026-10-18-inventory-views-delete-feedback-design.md`.
 
-**מצב:** הענף `inventory-views` **עדיין לא מוזג ל-main ולא מותקן על הטלפון של אמיר** (התקנה רק עם `install -r`, ורק לבקשתו).
+**מצב:** הענף `inventory-views` **עדיין לא מוזג ל-main**, אבל **מותקן על הטלפון של אמיר** (`3694e208`, 0.2.0, versionCode 2) לבקשתו ב-18/10/2026, עם `install -r`.
 
 **מה פתוח:** ארבעה פריטים קטנים ב-`SPEC.md` ("מה פתוח"): כותרת משפחה חותכת שמות ארוכים, דיאלוג בחירה נסגר בסיבוב, טבלאות צפופות במצב אופקי, ומסכי הוספה אחרים עדיין עם snackbar.
 
