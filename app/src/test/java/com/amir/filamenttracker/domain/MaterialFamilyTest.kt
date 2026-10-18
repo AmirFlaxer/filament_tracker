@@ -8,7 +8,13 @@ class MaterialFamilyTest {
     @Test fun `space separates the variant`() = assertEquals(MaterialKind("PLA", "Matte"), materialKind("PLA Matte"))
     @Test fun `hyphen separates the variant`() = assertEquals(MaterialKind("PETG", "CF"), materialKind("PETG-CF"))
     @Test fun `extra spaces are trimmed`() = assertEquals(MaterialKind("PLA", "Silk"), materialKind("  PLA   Silk "))
-    @Test fun `plus has no separator`() = assertEquals(MaterialKind("PLA+", null), materialKind("PLA+"))
+    @Test fun `plus suffix is a variant`() = assertEquals(MaterialKind("PLA", "+"), materialKind("PLA+"))
+    @Test fun `suffix joins in front of remaining words`() =
+        assertEquals(MaterialKind("PETG", "++ HF"), materialKind("PETG++ HF"))
+    @Test fun `compose empty variant is the family`() = assertEquals("PETG", composeMaterialName("PETG", ""))
+    @Test fun `compose symbol variant is attached`() = assertEquals("PLA+", composeMaterialName("PLA", "+"))
+    @Test fun `compose word variant is spaced`() = assertEquals("PETG Rapid", composeMaterialName("PETG", "Rapid"))
+    @Test fun `compose digit variant is spaced`() = assertEquals("PETG 2", composeMaterialName("PETG", "2"))
     @Test fun `family key ignores case`() = assertEquals(familyKey("PLA"), familyKey("pla matte"))
     @Test fun `a known base material later in the name is the family`() =
         assertEquals(MaterialKind("PETG", "Rapid"), materialKind("Rapid PETG"))
