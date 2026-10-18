@@ -34,7 +34,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.amir.filamenttracker.presentation.catalog.CatalogScreen
 import com.amir.filamenttracker.presentation.common.NoInsets
+import com.amir.filamenttracker.presentation.targets.TargetsScreen
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -104,8 +106,8 @@ fun AppNav() {
             composable(Routes.AMS) { PlaceholderScreen("AMS") }
             composable(Routes.ORDERS) { PlaceholderScreen("הזמנות") }
             composable(Routes.CONSUMPTION) { PlaceholderScreen("תצרוכת") }
-            composable(Routes.CATALOG) { PlaceholderScreen("קטלוג") }
-            composable(Routes.TARGETS) { PlaceholderScreen("שומר במלאי") }
+            composable(Routes.CATALOG) { CatalogScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.TARGETS) { TargetsScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.ADD_EXISTING) { PlaceholderScreen("הוספת סליל קיים") }
             composable(Routes.NEW_ORDER) { PlaceholderScreen("הזמנה חדשה") }
             composable(
