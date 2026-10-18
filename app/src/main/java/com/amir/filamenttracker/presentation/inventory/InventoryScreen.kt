@@ -35,7 +35,7 @@ import com.amir.filamenttracker.domain.AlertKind
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.domain.model.InventoryView
 import com.amir.filamenttracker.domain.model.SpoolStatus
-import com.amir.filamenttracker.presentation.common.ColorDot
+import com.amir.filamenttracker.presentation.common.ColorNameChip
 import com.amir.filamenttracker.presentation.common.NoInsets
 import com.amir.filamenttracker.presentation.common.title
 
@@ -136,8 +136,8 @@ private fun AlertsCard(alerts: List<AlertRow>) {
                         Text(kind.title(), style = MaterialTheme.typography.titleSmall, color = kind.color())
                         group.forEach { alert ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ColorDot(alert.colorHex, size = 14.dp)
-                                Text("${alert.family} ${alert.colorName}")
+                                Text(alert.family)
+                                ColorNameChip(alert.colorName, alert.colorHex, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }

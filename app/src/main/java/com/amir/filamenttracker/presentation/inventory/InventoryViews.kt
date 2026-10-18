@@ -12,9 +12,12 @@ data class ListRow(
     val colorHex: String?,
     val counts: Map<SpoolStatus, Int>,
     val slots: List<Int> = emptyList(),
+    /** Set when the row stands for a color, so the screen can draw it as a chip; null when the label is plain text. */
+    val colorName: String? = null,
 )
 
-data class ListSection(val title: String, val colorHex: String?, val rows: List<ListRow>)
+/** [isColor] marks a by-color section, whose title is a color name drawn as a chip even when it has no stored hue. */
+data class ListSection(val title: String, val colorHex: String?, val rows: List<ListRow>, val isColor: Boolean = false)
 
 data class StatusTableRow(
     val family: String,
@@ -62,6 +65,7 @@ private fun familyColorRows(spools: List<SpoolRow>, names: Map<String, String>):
             label = first.colorName,
             colorHex = first.colorHex,
             counts = group.countsByStatus(),
+            colorName = first.colorName,
         )
     }.sortedBy { it.label }
 
@@ -82,7 +86,7 @@ fun byColor(spools: List<SpoolRow>): List<ListSection> {
             val family = names.getValue(key)
             ListRow(family, first.colorId, family, first.colorHex, inFamily.countsByStatus())
         }.sortedBy { it.label }
-        ListSection(first.colorName, first.colorHex, perFamily)
+        ListSection(first.colorName, first.colorHex, perFamily, isColor = true)
     }.sortedBy { it.title }
 }
 
@@ -109,6 +113,7 @@ fun byStatus(spools: List<SpoolRow>): List<ListSection> {
                 colorHex = first.colorHex,
                 counts = mapOf(status to group.size),
                 slots = if (status == SpoolStatus.IN_USE) group.mapNotNull { it.amsSlot }.sorted() else emptyList(),
+                colorName = first.colorName,
             )
         }.sortedBy { it.label }
         ListSection(title, null, listRows)

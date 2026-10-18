@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.data.db.ColorEntity
 import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.ProductRow
@@ -115,7 +116,7 @@ fun NewProductDialog(
                             selected = color == c.name,
                             onClick = { color = c.name; if (hex.isBlank()) hex = c.hex ?: "" },
                             label = { Text(c.name) },
-                            leadingIcon = { ColorDot(c.hex, size = 14.dp) },
+                            leadingIcon = { ColorDot(resolveColorHex(c.name, c.hex), size = 14.dp) },
                         )
                     }
                 }
@@ -124,7 +125,7 @@ fun NewProductDialog(
                     label = { Text("גוון, לא חובה (למשל #1A2B3C)") },
                     singleLine = true,
                     isError = !hexValid,
-                    trailingIcon = { ColorDot(hex) },
+                    trailingIcon = { ColorDot(resolveColorHex(color, hex)) },
                 )
                 OutlinedTextField(
                     weight, { weight = it.filter(Char::isDigit) },
@@ -168,7 +169,7 @@ fun ProductPickerDialog(
                     ListItem(
                         headlineContent = { Text(p.title) },
                         supportingContent = { Text("${p.weightGrams} ג'") },
-                        leadingContent = { ColorDot(p.colorHex) },
+                        leadingContent = { ColorDot(resolveColorHex(p.colorName, p.colorHex)) },
                         modifier = Modifier.clickable { onPick(p) },
                     )
                 }

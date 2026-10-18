@@ -35,7 +35,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
+import com.amir.filamenttracker.presentation.common.ColorNameChip
 import com.amir.filamenttracker.presentation.common.NoInsets
 import com.amir.filamenttracker.presentation.common.SectionHeader
 import com.amir.filamenttracker.presentation.common.label
@@ -83,10 +85,11 @@ private fun SlotCard(slot: Int, spool: SpoolRow?, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            ColorDot(spool?.colorHex, size = 40.dp)
-            Column {
+            ColorDot(spool?.let { resolveColorHex(it.colorName, it.colorHex) }, size = 40.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("חריץ $slot", style = MaterialTheme.typography.labelMedium)
                 Text(spool?.title ?: "ריק", style = MaterialTheme.typography.titleMedium)
+                spool?.let { ColorNameChip(it.colorName, it.colorHex, style = MaterialTheme.typography.bodyMedium) }
             }
         }
     }
@@ -126,7 +129,7 @@ private fun SlotSheet(
             ListItem(
                 headlineContent = { Text(c.title) },
                 supportingContent = { Text(c.status.label()) },
-                leadingContent = { ColorDot(c.colorHex) },
+                leadingContent = { ColorDot(resolveColorHex(c.colorName, c.colorHex)) },
                 modifier = Modifier.clickable { onLoad(c.spoolId) },
             )
         }

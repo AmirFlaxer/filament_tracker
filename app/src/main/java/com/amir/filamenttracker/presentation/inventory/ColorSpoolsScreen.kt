@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.presentation.common.BackTopBar
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.statusText
 
@@ -28,7 +29,7 @@ fun ColorSpoolsScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: Colo
                 ListItem(
                     headlineContent = { Text("${spool.brand} · ${spool.materialName}") },
                     supportingContent = { Text(spool.statusText()) },
-                    leadingContent = { ColorDot(spool.colorHex) },
+                    leadingContent = { ColorDot(resolveColorHex(spool.colorName, spool.colorHex)) },
                     modifier = Modifier.clickable { onSpoolClick(spool.spoolId) },
                 )
             }

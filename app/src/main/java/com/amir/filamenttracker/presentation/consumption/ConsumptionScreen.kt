@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.NoInsets
 
@@ -57,7 +58,7 @@ fun ConsumptionScreen(vm: ConsumptionViewModel = hiltViewModel()) {
             items(list.orEmpty(), key = { "${it.key.materialId}-${it.key.colorId}" }) { row ->
                 ListItem(
                     headlineContent = { Text(row.title) },
-                    leadingContent = { ColorDot(row.colorHex, size = 28.dp) },
+                    leadingContent = { ColorDot(resolveColorHex(row.colorName, row.colorHex), size = 28.dp) },
                     supportingContent = { Text(listOfNotNull(row.rateText, row.forecastText).joinToString("\n")) },
                     trailingContent = { Text("${row.finishedInRange}", style = MaterialTheme.typography.titleLarge) },
                 )

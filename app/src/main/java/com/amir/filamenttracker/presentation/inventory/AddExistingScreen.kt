@@ -47,6 +47,7 @@ import com.amir.filamenttracker.domain.SpoolPlanner
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.NewProductDialog
 import com.amir.filamenttracker.presentation.common.ProductPickerDialog
@@ -108,7 +109,7 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    ColorDot(selected?.colorHex)
+                    ColorDot(selected?.let { resolveColorHex(it.colorName, it.colorHex) })
                     Text(selected?.title ?: "בחר מוצר")
                 }
             }
