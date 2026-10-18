@@ -1,6 +1,10 @@
 package com.amir.filamenttracker.data.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import com.amir.filamenttracker.data.db.AppDatabase
 import dagger.Module
@@ -24,4 +28,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun clock(): Clock = Clock.systemDefaultZone()
+
+    @Provides
+    @Singleton
+    fun preferences(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
 }
