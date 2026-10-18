@@ -1,6 +1,7 @@
 package com.amir.filamenttracker.presentation.common
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -9,6 +10,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
@@ -21,13 +24,14 @@ import androidx.compose.ui.unit.sp
 import com.amir.filamenttracker.domain.ChipBackground
 import com.amir.filamenttracker.domain.ColorSwatch
 import com.amir.filamenttracker.domain.chipBackgroundFor
+import com.amir.filamenttracker.domain.needsHalo
 import com.amir.filamenttracker.domain.resolveSwatch
 
 private fun ChipBackground.color() = parseHexOrNull(hex) ?: Color.Gray
 
 private val RainbowColors = listOf("#E53935", "#FB8C00", "#FDD835", "#43A047", "#1E88E5", "#8E24AA").map { parseHexOrNull(it)!! }
 
-private val HaloWidth = 2.5.dp
+private val HaloWidth = 1.5.dp
 
 /**
  * A bold color name written in its own color with a thin halo around the letters. The halo is cream or slate,
@@ -45,15 +49,15 @@ private fun HaloText(
 ) {
     val fill = if (brush != null) style.copy(brush = brush) else style.copy(color = color)
     if (halo == null) {
-        Text(name, modifier, style = fill, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(name, modifier.padding(horizontal = 2.dp), style = fill, maxLines = 1, overflow = TextOverflow.Ellipsis)
         return
     }
     val strokePx = with(LocalDensity.current) { HaloWidth.toPx() }
-    Box(modifier) {
+    Box(modifier.padding(horizontal = 2.dp)) {
         Text(
             name,
             style = style.copy(
-                color = halo.copy(alpha = 0.85f),
+                color = halo.copy(alpha = 0.9f),
                 drawStyle = Stroke(width = strokePx, join = StrokeJoin.Round),
             ),
             maxLines = 1,
@@ -71,6 +75,9 @@ fun ColorNameChip(
     style: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     val swatch = resolveSwatch(name, hex)
+    val surface = MaterialTheme.colorScheme.surface
+    val surfaceHex = "#%06X".format(surface.toArgb() and 0xFFFFFF)
+    val lightSurface = surface.luminance() > 0.5f
     val textStyle = style.copy(
         fontWeight = FontWeight.Bold,
         fontSize = if (style.fontSize.isSp) (style.fontSize.value + 1f).sp else style.fontSize,
@@ -78,7 +85,7 @@ fun ColorNameChip(
     when (swatch) {
         is ColorSwatch.Hex -> HaloText(
             name, modifier, textStyle,
-            halo = chipBackgroundFor(swatch.hex).color(),
+            halo = if (needsHalo(swatch.hex, surfaceHex)) chipBackgroundFor(swatch.hex).color() else null,
             color = parseHexOrNull(swatch.hex) ?: Color.Gray,
         )
         ColorSwatch.Clear -> {
@@ -97,13 +104,13 @@ fun ColorNameChip(
                     )
                 },
                 textStyle,
-                halo = ChipBackground.DARK.color(),
+                halo = if (needsHalo("#FFFFFF", surfaceHex)) ChipBackground.DARK.color() else null,
                 color = Color.White,
             )
         }
         ColorSwatch.Multi -> HaloText(
             name, modifier, textStyle,
-            halo = ChipBackground.LIGHT.color(),
+            halo = if (lightSurface) ChipBackground.DARK.color() else null,
             brush = Brush.linearGradient(RainbowColors),
         )
         ColorSwatch.None -> HaloText(

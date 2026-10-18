@@ -68,3 +68,6 @@ private fun contrast(a: String, b: String): Double {
 /** WCAG contrast of the text color against each background; the higher wins, a tie goes to LIGHT. */
 fun chipBackgroundFor(hex: String): ChipBackground =
     if (contrast(hex, ChipBackground.DARK.hex) > contrast(hex, ChipBackground.LIGHT.hex)) ChipBackground.DARK else ChipBackground.LIGHT
+
+/** True when a name in [textHex] is hard to read (WCAG contrast under 3:1) on a screen of [surfaceHex]. */
+fun needsHalo(textHex: String, surfaceHex: String): Boolean = contrast(textHex, surfaceHex) < 3.0

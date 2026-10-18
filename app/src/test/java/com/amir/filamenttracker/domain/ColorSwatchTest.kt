@@ -59,4 +59,13 @@ class ColorSwatchTest {
         light.forEach { assertEquals(it, ChipBackground.LIGHT, chipBackgroundFor(it)) }
         dark.forEach { assertEquals(it, ChipBackground.DARK, chipBackgroundFor(it)) }
     }
+
+    @Test fun `halo only for names hard to read on the surface`() {
+        val light = "#FFFBFE"
+        val dark = "#1C1B1F"
+        listOf("#FFFFFF", "#FBC02D").forEach { assertEquals(it, true, needsHalo(it, light)) }
+        listOf("#000000", "#D32F2F", "#8E24AA").forEach { assertEquals(it, false, needsHalo(it, light)) }
+        listOf("#000000", "#8E24AA").forEach { assertEquals(it, true, needsHalo(it, dark)) }
+        listOf("#FFFFFF", "#FBC02D").forEach { assertEquals(it, false, needsHalo(it, dark)) }
+    }
 }
