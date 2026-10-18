@@ -39,9 +39,22 @@ class NewOrderViewModel @Inject constructor(
         "המוצר נשמר"
     }
 
-    fun save(vendor: String, orderNumber: String, expectedAt: LocalDate?, onDone: () -> Unit) = launchAction {
-        inventory.createOrder(vendor, orderNumber, expectedAt, quantities.value)
-        onDone()
-        null
+    private val _saving = MutableStateFlow(false)
+    val saving: StateFlow<Boolean> = _saving
+
+    /** Ignores re-entry while a save runs, so a double tap cannot create two orders. */
+    fun save(vendor: String, orderNumber: String, expectedAt: LocalDate?, onDone: () -> Unit) {
+        if (!_saving.compareAndSet(false, true)) return
+        launchAction {
+            var saved = false
+            try {
+                inventory.createOrder(vendor, orderNumber, expectedAt, quantities.value)
+                saved = true
+                onDone()
+                null
+            } finally {
+                if (!saved) _saving.value = false // after success the screen closes; stay locked
+            }
+        }
     }
 }

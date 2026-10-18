@@ -125,6 +125,38 @@ class InventoryRepositoryTest {
     }
 
     @Test
+    fun `an untouched existing spool can be deleted with its event`() = runTest {
+        val id = repo.addExisting(black, 1, SEALED, slot = null).single()
+        repo.deleteIfUntouched(id)
+        assertNull(db.spoolDao().spool(id))
+        assertTrue(events(id).isEmpty())
+    }
+
+    @Test
+    fun `an existing spool with a later event cannot be deleted`() = runTest {
+        val id = repo.addExisting(black, 1, SEALED, slot = null).single()
+        repo.loadIntoSlot(id, 1)
+        try {
+            repo.deleteIfUntouched(id)
+            throw AssertionError("expected SpoolRuleException")
+        } catch (expected: SpoolRuleException) {
+        }
+        assertEquals(IN_USE, spool(id).status)
+    }
+
+    @Test
+    fun `an ordered spool cannot be deleted as untouched`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 1))
+        val id = repo.orderSpools(orderId).first().single().spoolId
+        try {
+            repo.deleteIfUntouched(id)
+            throw AssertionError("expected SpoolRuleException")
+        } catch (expected: SpoolRuleException) {
+        }
+        assertEquals(ORDERED, spool(id).status)
+    }
+
+    @Test
     fun `an order can be deleted only while nothing has arrived`() = runTest {
         val arrived = repo.createOrder("Amazon", null, null, mapOf(black to 1))
         repo.markOrderArrived(arrived)

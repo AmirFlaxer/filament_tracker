@@ -21,6 +21,10 @@ data class SpoolDetailState(
 ) {
     // The creation event (no fromStatus) cannot be undone.
     val canUndo: Boolean get() = events.firstOrNull()?.fromStatus != null
+
+    // Mistaken existing-stock intake: only the creation event, and not from an order.
+    val canDelete: Boolean
+        get() = spool != null && spool.orderId == null && events.size == 1 && events.single().fromStatus == null
 }
 
 @HiltViewModel
@@ -47,6 +51,12 @@ class SpoolDetailViewModel @Inject constructor(
     fun unload() = launchAction { inventory.unload(spoolId); "הוצא לאחסון" }
     fun finish() = launchAction { inventory.finish(spoolId); "סומן שהסתיים" }
     fun undo() = launchAction { inventory.undoLast(spoolId); "הפעולה האחרונה בוטלה" }
+
+    fun deleteUntouched(onDone: () -> Unit) = launchAction {
+        inventory.deleteIfUntouched(spoolId)
+        onDone()
+        null
+    }
 
     fun removeOrdered(onDone: () -> Unit) = launchAction {
         inventory.removeOrderedSpool(spoolId)

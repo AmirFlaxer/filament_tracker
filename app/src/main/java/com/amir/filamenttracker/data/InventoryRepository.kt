@@ -97,6 +97,14 @@ class InventoryRepository @Inject constructor(
         spoolDao.deleteSpool(spoolId)
     }
 
+    /** Undo for a mistaken existing-stock intake: only a spool with just its creation event and no order. */
+    suspend fun deleteIfUntouched(spoolId: Long) = db.withTransaction {
+        val spool = spoolDao.spool(spoolId) ?: throw SpoolRuleException("הסליל לא נמצא")
+        val untouched = spool.orderId == null && spoolDao.eventCount(spoolId) == 1
+        if (!untouched) throw SpoolRuleException("אפשר למחוק רק סליל קיים שלא נעשתה בו שום פעולה")
+        spoolDao.deleteSpool(spoolId) // events cascade
+    }
+
     suspend fun deleteOrder(orderId: Long) = db.withTransaction {
         if (spoolDao.spoolsOfOrder(orderId).any { it.status != ORDERED }) {
             throw SpoolRuleException("אפשר למחוק רק הזמנה שאף סליל ממנה עוד לא הגיע")

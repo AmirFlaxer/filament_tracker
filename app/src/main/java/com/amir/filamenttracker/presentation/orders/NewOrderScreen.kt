@@ -53,6 +53,7 @@ fun NewOrderScreen(onBack: () -> Unit, vm: NewOrderViewModel = hiltViewModel()) 
     val materials by vm.materials.collectAsStateWithLifecycle()
     val colors by vm.colors.collectAsStateWithLifecycle()
     val lines by vm.lines.collectAsStateWithLifecycle()
+    val saving by vm.saving.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
 
@@ -100,7 +101,7 @@ fun NewOrderScreen(onBack: () -> Unit, vm: NewOrderViewModel = hiltViewModel()) 
             item {
                 Button(
                     onClick = { vm.save(vendor, orderNumber, expectedAt, onBack) },
-                    enabled = lines.isNotEmpty(),
+                    enabled = lines.isNotEmpty() && !saving,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("שמור הזמנה") }
             }

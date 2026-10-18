@@ -53,6 +53,7 @@ fun SpoolDetailScreen(onBack: () -> Unit, vm: SpoolDetailViewModel = hiltViewMod
     CollectMessages(vm.messages, host)
     var slotPicker by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val spool = state.spool
 
     Scaffold(topBar = { BackTopBar(spool?.title ?: "סליל", onBack) }, snackbarHost = { SnackbarHost(host) }) { padding ->
@@ -97,6 +98,9 @@ fun SpoolDetailScreen(onBack: () -> Unit, vm: SpoolDetailViewModel = hiltViewMod
                 }
             }
             item { OutlinedButton(onClick = vm::undo, enabled = state.canUndo) { Text("בטל פעולה אחרונה") } }
+            if (state.canDelete) {
+                item { OutlinedButton(onClick = { confirmDelete = true }) { Text("מחק סליל") } }
+            }
             item { SectionHeader("היסטוריה") }
             items(state.events, key = { it.id }) { e ->
                 Text("${e.at.formatDateTime()} · ${e.describe()}", style = MaterialTheme.typography.bodyMedium)
@@ -109,6 +113,14 @@ fun SpoolDetailScreen(onBack: () -> Unit, vm: SpoolDetailViewModel = hiltViewMod
             vm.load(it)
             slotPicker = false
         }
+    }
+    if (confirmDelete) {
+        ConfirmDialog(
+            text = "למחוק את הסליל? הוא נקלט בטעות ולא נעשתה בו שום פעולה. אי אפשר לבטל את זה.",
+            confirmLabel = "מחק",
+            onConfirm = { vm.deleteUntouched(onBack) },
+            onDismiss = { confirmDelete = false },
+        )
     }
     if (confirmRemove) {
         ConfirmDialog(

@@ -41,9 +41,21 @@ class AddExistingViewModel @Inject constructor(
         "המוצר נשמר"
     }
 
-    fun add(quantity: Int, status: SpoolStatus, slot: Int?) = launchAction {
-        val productId = selectedId.value ?: throw IllegalArgumentException("יש לבחור מוצר")
-        val ids = inventory.addExisting(productId, quantity, status, slot)
-        if (ids.size == 1) "נוסף סליל אחד" else "נוספו ${ids.size} סלילים"
+    private val _adding = MutableStateFlow(false)
+    val adding: StateFlow<Boolean> = _adding
+
+    /** Ignores taps while an add is running, so a double tap cannot create ghost spools. */
+    fun add(quantity: Int, status: SpoolStatus, slot: Int?, onSuccess: () -> Unit) {
+        if (!_adding.compareAndSet(false, true)) return
+        launchAction {
+            try {
+                val productId = selectedId.value ?: throw IllegalArgumentException("יש לבחור מוצר")
+                val ids = inventory.addExisting(productId, quantity, status, slot)
+                onSuccess()
+                if (ids.size == 1) "נוסף סליל אחד" else "נוספו ${ids.size} סלילים"
+            } finally {
+                _adding.value = false
+            }
+        }
     }
 }

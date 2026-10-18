@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -55,6 +56,7 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
     val colors by vm.colors.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val occupants by vm.occupants.collectAsStateWithLifecycle()
+    val adding by vm.adding.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
 
@@ -64,11 +66,11 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
     var picker by remember { mutableStateOf(false) }
     var newProduct by remember { mutableStateOf(false) }
     val inUse = status == SpoolStatus.IN_USE
-    val canAdd = selected != null && (!inUse || slot != null)
+    val canAdd = !adding && selected != null && (!inUse || slot != null)
 
     Scaffold(topBar = { BackTopBar("הוספת סליל קיים", onBack) }, snackbarHost = { SnackbarHost(host) }) { padding ->
         Column(
-            Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()).imePadding(),
+            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("מוצר", style = MaterialTheme.typography.titleSmall)
@@ -117,8 +119,7 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
 
             Button(
                 onClick = {
-                    vm.add(if (inUse) 1 else quantity, status, if (inUse) slot else null)
-                    quantity = 1
+                    vm.add(if (inUse) 1 else quantity, status, if (inUse) slot else null) { quantity = 1 }
                 },
                 enabled = canAdd,
                 modifier = Modifier.fillMaxWidth(),
