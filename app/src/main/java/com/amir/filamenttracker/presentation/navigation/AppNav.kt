@@ -40,6 +40,9 @@ import com.amir.filamenttracker.presentation.common.NoInsets
 import com.amir.filamenttracker.presentation.inventory.AddExistingScreen
 import com.amir.filamenttracker.presentation.inventory.ColorSpoolsScreen
 import com.amir.filamenttracker.presentation.inventory.InventoryScreen
+import com.amir.filamenttracker.presentation.orders.NewOrderScreen
+import com.amir.filamenttracker.presentation.orders.OrderDetailScreen
+import com.amir.filamenttracker.presentation.orders.OrdersScreen
 import com.amir.filamenttracker.presentation.spool.SpoolDetailScreen
 import com.amir.filamenttracker.presentation.targets.TargetsScreen
 
@@ -114,12 +117,17 @@ fun AppNav() {
                 )
             }
             composable(Routes.AMS) { AmsScreen(onSpoolClick = { nav.navigate(Routes.spool(it)) }) }
-            composable(Routes.ORDERS) { PlaceholderScreen("הזמנות") }
+            composable(Routes.ORDERS) {
+                OrdersScreen(
+                    onOrderClick = { nav.navigate(Routes.order(it)) },
+                    onNewOrder = { nav.navigate(Routes.NEW_ORDER) },
+                )
+            }
             composable(Routes.CONSUMPTION) { PlaceholderScreen("תצרוכת") }
             composable(Routes.CATALOG) { CatalogScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.TARGETS) { TargetsScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.ADD_EXISTING) { AddExistingScreen(onBack = { nav.popBackStack() }) }
-            composable(Routes.NEW_ORDER) { PlaceholderScreen("הזמנה חדשה") }
+            composable(Routes.NEW_ORDER) { NewOrderScreen(onBack = { nav.popBackStack() }) }
             composable(
                 Routes.SPOOL,
                 arguments = listOf(navArgument("spoolId") { type = NavType.LongType }),
@@ -127,7 +135,7 @@ fun AppNav() {
             composable(
                 Routes.ORDER,
                 arguments = listOf(navArgument("orderId") { type = NavType.LongType }),
-            ) { PlaceholderScreen("הזמנה") }
+            ) { OrderDetailScreen(onBack = { nav.popBackStack() }, onSpoolClick = { nav.navigate(Routes.spool(it)) }) }
             composable(
                 Routes.COLOR_SPOOLS,
                 arguments = listOf(
