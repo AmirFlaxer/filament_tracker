@@ -41,7 +41,7 @@ import com.amir.filamenttracker.presentation.common.title
 
 @Composable
 fun InventoryScreen(
-    onColorClick: (materialId: Long, colorId: Long) -> Unit,
+    onColorClick: (family: String, colorId: Long) -> Unit,
     onAddExisting: () -> Unit,
     vm: InventoryViewModel = hiltViewModel(),
 ) {
@@ -51,16 +51,6 @@ fun InventoryScreen(
     val spools = state.spools
     // Grouping is computed once per data or view change, not on every recomposition.
     val content = remember(spools, state.alerts, view) { view?.let { buildContent(it, spools, state.alerts) } }
-    var pickFrom by remember { mutableStateOf<List<CellMaterial>?>(null) }
-    var pickColorId by remember { mutableStateOf(0L) }
-
-    pickFrom?.let { materials ->
-        MaterialPickDialog(
-            materials = materials,
-            onPick = { pickFrom = null; onColorClick(it.materialId, pickColorId) },
-            onDismiss = { pickFrom = null },
-        )
-    }
 
     Scaffold(
         contentWindowInsets = NoInsets,
@@ -81,16 +71,11 @@ fun InventoryScreen(
                         Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
                     }
                 } else when (content) {
-                    is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.materialId, it.colorId) }
-                    is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.materialId, it.colorId) }
-                    is ViewContent.MaterialTableContent -> materialTableItems(content.table) { colorId, cell ->
-                        if (cell.missing) return@materialTableItems
-                        if (cell.materials.size == 1) {
-                            onColorClick(cell.materials.single().materialId, colorId)
-                        } else {
-                            pickColorId = colorId
-                            pickFrom = cell.materials
-                        }
+                    is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.family, it.colorId) }
+                    is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.family, it.colorId) }
+                    is ViewContent.MaterialTableContent -> materialTableItems(content.table) { family, colorId, cell ->
+                        // A missing-only cell has no spools to open.
+                        if (!cell.missing) onColorClick(family, colorId)
                     }
                 }
             }

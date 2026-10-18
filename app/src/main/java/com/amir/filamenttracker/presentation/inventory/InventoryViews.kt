@@ -6,7 +6,7 @@ import com.amir.filamenttracker.domain.AlertKind
 import com.amir.filamenttracker.domain.model.SpoolStatus
 
 data class ListRow(
-    val materialId: Long,
+    val family: String,
     val colorId: Long,
     val label: String,
     val colorHex: String?,
@@ -17,7 +17,7 @@ data class ListRow(
 data class ListSection(val title: String, val colorHex: String?, val rows: List<ListRow>)
 
 data class StatusTableRow(
-    val materialId: Long,
+    val family: String,
     val colorId: Long,
     val label: String,
     val colorHex: String?,
@@ -31,9 +31,7 @@ data class StatusTableRow(
 
 data class StatusTableSection(val family: String, val rows: List<StatusTableRow>)
 
-data class CellMaterial(val materialId: Long, val materialName: String)
-
-data class MaterialCell(val counts: Map<SpoolStatus, Int>, val missing: Boolean, val materials: List<CellMaterial>) {
+data class MaterialCell(val counts: Map<SpoolStatus, Int>, val missing: Boolean) {
     val total: Int get() = counts.values.sum()
 }
 
@@ -54,15 +52,14 @@ private fun familyNames(spools: List<SpoolRow>, extraFamilies: Collection<String
 
 private fun List<SpoolRow>.countsByStatus(): Map<SpoolStatus, Int> = groupingBy { it.status }.eachCount()
 
-/** A row per material and color, with a variant such as "Matte" shown beside the color name. */
-private fun materialColorRows(spools: List<SpoolRow>): List<ListRow> =
-    spools.groupBy { it.materialId to it.colorId }.values.map { group ->
+/** A row per main material and color: every variant of the family counts together, the variant shows on the spools screen. */
+private fun familyColorRows(spools: List<SpoolRow>, names: Map<String, String>): List<ListRow> =
+    spools.groupBy { familyKey(it.materialFamily) to it.colorId }.map { (key, group) ->
         val first = group.first()
-        val variant = first.materialVariant
         ListRow(
-            materialId = first.materialId,
+            family = names.getValue(key.first),
             colorId = first.colorId,
-            label = if (variant.isBlank()) first.colorName else "${first.colorName} · $variant",
+            label = first.colorName,
             colorHex = first.colorHex,
             counts = group.countsByStatus(),
         )
@@ -72,19 +69,22 @@ fun byMaterial(spools: List<SpoolRow>): List<ListSection> {
     val rows = live(spools)
     val names = familyNames(rows)
     return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
-        ListSection(names.getValue(key), null, materialColorRows(group))
+        ListSection(names.getValue(key), null, familyColorRows(group, names))
     }
 }
 
-fun byColor(spools: List<SpoolRow>): List<ListSection> =
-    live(spools).groupBy { it.colorId }.values.map { group ->
+fun byColor(spools: List<SpoolRow>): List<ListSection> {
+    val rows = live(spools)
+    val names = familyNames(rows)
+    return rows.groupBy { it.colorId }.values.map { group ->
         val first = group.first()
-        val rows = group.groupBy { it.materialId }.values.map { perMaterial ->
-            val m = perMaterial.first()
-            ListRow(m.materialId, m.colorId, m.materialName, m.colorHex, perMaterial.countsByStatus())
+        val perFamily = group.groupBy { familyKey(it.materialFamily) }.map { (key, inFamily) ->
+            val family = names.getValue(key)
+            ListRow(family, first.colorId, family, first.colorHex, inFamily.countsByStatus())
         }.sortedBy { it.label }
-        ListSection(first.colorName, first.colorHex, rows)
+        ListSection(first.colorName, first.colorHex, perFamily)
     }.sortedBy { it.title }
+}
 
 private val statusSections = listOf(
     SpoolStatus.IN_USE to "בשימוש",
@@ -95,15 +95,17 @@ private val statusSections = listOf(
 
 fun byStatus(spools: List<SpoolRow>): List<ListSection> {
     val rows = live(spools)
+    val names = familyNames(rows)
     return statusSections.mapNotNull { (status, title) ->
         val inStatus = rows.filter { it.status == status }
         if (inStatus.isEmpty()) return@mapNotNull null
-        val listRows = inStatus.groupBy { it.materialId to it.colorId }.values.map { group ->
+        val listRows = inStatus.groupBy { familyKey(it.materialFamily) to it.colorId }.map { (key, group) ->
             val first = group.first()
+            val family = names.getValue(key.first)
             ListRow(
-                materialId = first.materialId,
+                family = family,
                 colorId = first.colorId,
-                label = "${first.materialName} ${first.colorName}",
+                label = "$family ${first.colorName}",
                 colorHex = first.colorHex,
                 counts = mapOf(status to group.size),
                 slots = if (status == SpoolStatus.IN_USE) group.mapNotNull { it.amsSlot }.sorted() else emptyList(),
@@ -117,9 +119,9 @@ fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
     val rows = live(spools)
     val names = familyNames(rows)
     return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
-        val tableRows = materialColorRows(group).map { row ->
+        val tableRows = familyColorRows(group, names).map { row ->
             StatusTableRow(
-                materialId = row.materialId,
+                family = row.family,
                 colorId = row.colorId,
                 label = row.label,
                 colorHex = row.colorHex,
@@ -151,15 +153,9 @@ fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable
             if (inCell.isEmpty() && missingHere.isEmpty()) {
                 null
             } else {
-                val materials = if (inCell.isNotEmpty()) {
-                    inCell.map { CellMaterial(it.materialId, it.materialName) }
-                } else {
-                    emptyList()
-                }
                 MaterialCell(
                     counts = inCell.countsByStatus(),
                     missing = inCell.isEmpty() && missingHere.isNotEmpty(),
-                    materials = materials.distinct().sortedBy { it.materialName },
                 )
             }
         }

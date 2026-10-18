@@ -110,7 +110,7 @@ fun AppNav() {
         NavHost(navController = nav, startDestination = Routes.INVENTORY, modifier = Modifier.padding(padding)) {
             composable(Routes.INVENTORY) {
                 InventoryScreen(
-                    onColorClick = { materialId, colorId -> nav.navigate(Routes.colorSpools(materialId, colorId)) },
+                    onColorClick = { family, colorId -> nav.navigate(Routes.colorSpools(family, colorId)) },
                     onAddExisting = { nav.navigate(Routes.ADD_EXISTING) },
                 )
             }
@@ -137,7 +137,7 @@ fun AppNav() {
             composable(
                 Routes.COLOR_SPOOLS,
                 arguments = listOf(
-                    navArgument("materialId") { type = NavType.LongType },
+                    navArgument("family") { type = NavType.StringType },
                     navArgument("colorId") { type = NavType.LongType },
                 ),
             ) { ColorSpoolsScreen(onBack = { nav.popBackStack() }, onSpoolClick = { nav.navigate(Routes.spool(it)) }) }

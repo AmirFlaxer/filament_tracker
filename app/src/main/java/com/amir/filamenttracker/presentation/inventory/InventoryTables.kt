@@ -13,11 +13,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +78,7 @@ fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClic
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        items(section.rows, key = { "sr-${section.family}-${it.materialId}-${it.colorId}" }) { row ->
+        items(section.rows, key = { "sr-${section.family}-${it.colorId}" }) { row ->
             Row(
                 Modifier.fillMaxWidth().clickable { onRowClick(row) }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -135,7 +133,7 @@ private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
 private fun RowScope.nameColumn(scrolls: Boolean): Modifier =
     if (scrolls) Modifier.width(NameWidth) else Modifier.weight(1f)
 
-fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (colorId: Long, cell: MaterialCell) -> Unit) {
+fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (family: String, colorId: Long, cell: MaterialCell) -> Unit) {
     val scrolls = table.families.size > 3
     item(key = "mt-body") {
         val outer = if (scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
@@ -154,32 +152,10 @@ fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (colorId: Lon
                         ColorDot(row.colorHex, size = 16.dp)
                         Text(row.colorName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    row.cells.forEach { cell -> MaterialTableCell(cell) { cell?.let { onCell(row.colorId, it) } } }
+                    row.cells.forEachIndexed { i, cell -> MaterialTableCell(cell) { cell?.let { onCell(table.families[i], row.colorId, it) } } }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
     }
-}
-
-/** Lets the user pick among the materials that share one table cell. */
-@Composable
-fun MaterialPickDialog(materials: List<CellMaterial>, onPick: (CellMaterial) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("בחירת סוג") },
-        text = {
-            Column {
-                materials.forEach { m ->
-                    Text(
-                        m.materialName,
-                        Modifier.fillMaxWidth().clickable { onPick(m) }.padding(vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("ביטול") } },
-    )
 }

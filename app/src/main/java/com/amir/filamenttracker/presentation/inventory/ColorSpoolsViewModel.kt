@@ -13,12 +13,12 @@ class ColorSpoolsViewModel @Inject constructor(
     handle: SavedStateHandle,
     inventory: InventoryRepository,
 ) : BaseViewModel() {
-    private val materialId: Long = checkNotNull(handle.get<Long>("materialId"))
+    private val family: String = checkNotNull(handle.get<String>("family"))
     private val colorId: Long = checkNotNull(handle.get<Long>("colorId"))
 
     // Finished spools go last: they are history, kept for reference.
     val spools = inventory.spools.map { rows ->
-        rows.filter { it.materialId == materialId && it.colorId == colorId }
+        rows.filter { it.materialFamily.equals(family, ignoreCase = true) && it.colorId == colorId }
             .sortedBy { it.status == SpoolStatus.FINISHED }
     }.asState(emptyList())
 }

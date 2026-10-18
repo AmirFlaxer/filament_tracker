@@ -41,7 +41,7 @@ fun LazyListScope.listSections(sections: List<ListSection>, onRowClick: (ListRow
                 }
             }
         }
-        items(section.rows, key = { "r-${section.title}-${it.materialId}-${it.colorId}" }) { row ->
+        items(section.rows, key = { "r-${section.title}-${it.colorId}" }) { row ->
             ListItem(
                 headlineContent = { Text(row.label) },
                 supportingContent = { Text(row.supportingText()) },

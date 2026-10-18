@@ -44,19 +44,21 @@ class InventoryGroupingTest {
     )
 
     @Test
-    fun `by material groups variants under their family`() {
+    fun `by material counts every variant of a family and color in one row`() {
         val sections = byMaterial(sample)
         assertEquals(listOf("PETG", "PLA"), sections.map { it.title })
         val pla = sections.single { it.title == "PLA" }
-        assertEquals(listOf("לבן", "לבן · Matte"), pla.rows.map { it.label })
-        assertEquals(mapOf(IN_USE to 1, SEALED to 1), pla.rows.first { it.label == "לבן" }.counts)
+        assertEquals(listOf("לבן"), pla.rows.map { it.label })
+        assertEquals("PLA", pla.rows.single().family)
+        assertEquals(mapOf(IN_USE to 1, SEALED to 1, OPEN_STORED to 1), pla.rows.single().counts)
     }
 
     @Test
-    fun `a rapid variant of PETG goes in the PETG column and shows the variant`() {
+    fun `a rapid variant of PETG goes in the PETG column without showing the variant`() {
         val spools = sample + row("PETG", "Rapid", 4, "אפור", 12, SEALED)
         val section = byMaterial(spools).single { it.title == "PETG" }
-        assertTrue(section.rows.any { it.label == "אפור · Rapid" })
+        assertTrue(section.rows.any { it.label == "אפור" })
+        assertTrue(section.rows.none { it.label.contains("Rapid") })
         assertEquals(listOf("PETG", "PLA"), materialTable(spools, emptyList()).families)
         assertEquals(listOf("PETG", "PLA"), byMaterial(spools).map { it.title })
     }
@@ -65,7 +67,36 @@ class InventoryGroupingTest {
     fun `by color puts every material of a color together`() {
         val sections = byColor(sample)
         assertEquals(listOf("לבן", "שחור"), sections.map { it.title })
-        assertEquals(listOf("PETG", "PLA", "PLA Matte"), sections.first().rows.map { it.label })
+        assertEquals(listOf("PETG", "PLA"), sections.first().rows.map { it.label })
+        assertEquals(3, sections.first().rows.single { it.label == "PLA" }.counts.values.sum())
+    }
+
+    @Test
+    fun `two gray PETG materials give one PETG row in every view`() {
+        val spools = listOf(
+            row("PETG", "", 2, "אפור", 12, SEALED),
+            row("PETG", "Rapid", 4, "אפור", 12, SEALED),
+            row("PETG", "Rapid", 4, "אפור", 12, IN_USE, slot = 1),
+        )
+        val byMat = byMaterial(spools).single { it.title == "PETG" }.rows.single()
+        assertEquals("אפור", byMat.label)
+        assertEquals(mapOf(SEALED to 2, IN_USE to 1), byMat.counts)
+
+        val table = statusTable(spools).single { it.family == "PETG" }.rows.single()
+        assertEquals("אפור", table.label)
+        assertEquals(2, table.sealed)
+        assertEquals(1, table.inUse)
+        assertEquals(3, table.total)
+
+        val gray = byColor(spools).single { it.title == "אפור" }.rows.single()
+        assertEquals("PETG", gray.label)
+        assertEquals(3, gray.counts.values.sum())
+
+        val sealedRow = byStatus(spools).first { it.title == "סגורים" }.rows.single()
+        assertEquals("PETG אפור", sealedRow.label)
+        assertEquals(mapOf(SEALED to 2), sealedRow.counts)
+
+        assertEquals(3, materialTable(spools, emptyList()).rows.single().cells.single()!!.total)
     }
 
     @Test
@@ -87,7 +118,8 @@ class InventoryGroupingTest {
         val pla = sections.single { it.family == "PLA" }.rows.single { it.label == "לבן" }
         assertEquals(1, pla.inUse)
         assertEquals(1, pla.sealed)
-        assertEquals(2, pla.total)
+        assertEquals(1, pla.open)
+        assertEquals(3, pla.total)
     }
 
     @Test
@@ -97,7 +129,6 @@ class InventoryGroupingTest {
         val white = table.rows.single { it.colorName == "לבן" }
         val pla = white.cells[1]!!
         assertEquals(3, pla.total)
-        assertEquals(listOf(1L, 3L), pla.materials.map { it.materialId })
     }
 
     @Test
