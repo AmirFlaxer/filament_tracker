@@ -40,6 +40,7 @@ import com.amir.filamenttracker.domain.SpoolPlanner
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.ConfirmDialog
 import com.amir.filamenttracker.presentation.common.SectionHeader
@@ -73,7 +74,7 @@ fun SpoolDetailScreen(onBack: () -> Unit, vm: SpoolDetailViewModel = hiltViewMod
         ) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ColorDot(spool.colorHex, size = 48.dp)
+                    ColorDot(resolveColorHex(spool.colorName, spool.colorHex), size = 48.dp)
                     Column {
                         Text(spool.statusText(), style = MaterialTheme.typography.titleMedium)
                         Text("${spool.weightGrams} ג'", style = MaterialTheme.typography.bodyMedium)

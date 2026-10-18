@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.Stepper
 
@@ -50,7 +51,7 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
                 ListItem(
                     headlineContent = { Text("${row.family} ${row.colorName}") },
                     supportingContent = { if (tracked) Text(if (row.minSealed!! > 0) "התראה כשיש פחות מ-${row.minSealed} סגורים" else "התראה רק כשנגמר") },
-                    leadingContent = { ColorDot(row.colorHex) },
+                    leadingContent = { ColorDot(resolveColorHex(row.colorName, row.colorHex)) },
                     trailingContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (tracked) Stepper(row.minSealed!!, { vm.setMin(row, it) }, min = 0, max = 20)

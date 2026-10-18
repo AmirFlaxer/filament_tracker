@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.amir.filamenttracker.domain.model.SpoolStatus
-import com.amir.filamenttracker.presentation.common.ColorDot
+import com.amir.filamenttracker.presentation.common.ColorNameChip
 import com.amir.filamenttracker.presentation.common.countLabel
 
 private val NumberWidth = 44.dp
@@ -85,9 +85,8 @@ fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClic
                 Modifier.fillMaxWidth().clickable { onRowClick(row) }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ColorDot(row.colorHex, size = 20.dp)
-                    Text(row.label, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    ColorNameChip(row.label, row.colorHex)
                 }
                 NumberCell(row.inUse)
                 NumberCell(row.open)
@@ -150,9 +149,8 @@ fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (family: Stri
             table.rows.forEach { row ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     // One line per color: a long name is cut with an ellipsis instead of wrapping; the spools screen shows it in full.
-                    Row(nameColumn(scrolls), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ColorDot(row.colorHex, size = 16.dp)
-                        Text(row.colorName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(nameColumn(scrolls), verticalAlignment = Alignment.CenterVertically) {
+                        ColorNameChip(row.colorName, row.colorHex, style = MaterialTheme.typography.bodyMedium)
                     }
                     row.cells.forEachIndexed { i, cell -> MaterialTableCell(cell) { cell?.let { onCell(table.families[i], row.colorId, it) } } }
                 }

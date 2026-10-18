@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.NewProductDialog
 import com.amir.filamenttracker.presentation.common.ProductPickerDialog
@@ -95,7 +96,7 @@ fun NewOrderScreen(onBack: () -> Unit, vm: NewOrderViewModel = hiltViewModel()) 
             items(lines, key = { it.first.productId }) { (product, quantity) ->
                 ListItem(
                     headlineContent = { Text(product.title) },
-                    leadingContent = { ColorDot(product.colorHex) },
+                    leadingContent = { ColorDot(resolveColorHex(product.colorName, product.colorHex)) },
                     trailingContent = { Stepper(quantity, { vm.setQuantity(product.productId, it) }, min = 0, max = 50) },
                 )
             }

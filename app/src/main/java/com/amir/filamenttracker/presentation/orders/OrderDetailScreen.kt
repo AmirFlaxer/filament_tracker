@@ -34,6 +34,7 @@ import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.ConfirmDialog
 import com.amir.filamenttracker.presentation.common.formatDate
@@ -82,7 +83,7 @@ fun OrderDetailScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: Orde
                 ListItem(
                     headlineContent = { Text(s.title) },
                     supportingContent = { Text(s.statusText()) },
-                    leadingContent = { ColorDot(s.colorHex) },
+                    leadingContent = { ColorDot(resolveColorHex(s.colorName, s.colorHex)) },
                     trailingContent = {
                         if (s.status == SpoolStatus.ORDERED) {
                             Row(verticalAlignment = Alignment.CenterVertically) {

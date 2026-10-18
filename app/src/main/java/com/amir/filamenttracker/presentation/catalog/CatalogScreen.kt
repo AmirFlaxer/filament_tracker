@@ -29,6 +29,7 @@ import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.ConfirmDialog
 import com.amir.filamenttracker.presentation.common.NewProductDialog
@@ -78,7 +79,7 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
                     supportingContent = {
                         Text(listOf("${p.weightGrams} ג'", p.note).filter { it.isNotBlank() }.joinToString(" · "))
                     },
-                    leadingContent = { ColorDot(p.colorHex) },
+                    leadingContent = { ColorDot(resolveColorHex(p.colorName, p.colorHex)) },
                     trailingContent = {
                         RowActions(onEdit = { dialog = CatalogDialog.EditProduct(p) }, onRemove = {
                             dialog = CatalogDialog.ConfirmRemove("להסיר את ${p.title}?") { vm.removeProduct(p.productId) }
@@ -101,7 +102,7 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
             items(colors, key = { "c${it.id}" }) { c ->
                 ListItem(
                     headlineContent = { Text(c.name) },
-                    leadingContent = { ColorDot(c.hex) },
+                    leadingContent = { ColorDot(resolveColorHex(c.name, c.hex)) },
                     trailingContent = {
                         RowActions(onEdit = { dialog = CatalogDialog.EditColor(c) }, onRemove = {
                             dialog = CatalogDialog.ConfirmRemove("להסיר את הצבע ${c.name}?$TARGETS_WARNING") { vm.removeColor(c.id) }

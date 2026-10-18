@@ -30,6 +30,7 @@ enum class ConsumptionRange(val label: String, val months: Long?) {
 data class ConsumptionRowUi(
     val key: StockKey,
     val title: String,
+    val colorName: String,
     val colorHex: String?,
     val finishedInRange: Int,
     val rateText: String,
@@ -68,6 +69,7 @@ internal fun buildRows(
         ConsumptionRowUi(
             key = key,
             title = "${first.materialName} ${first.colorName}",
+            colorName = first.colorName,
             colorHex = first.colorHex,
             finishedInRange = times.count { from == null || !it.isBefore(from) },
             // The rate uses the whole history: a short window would make it jumpy.
