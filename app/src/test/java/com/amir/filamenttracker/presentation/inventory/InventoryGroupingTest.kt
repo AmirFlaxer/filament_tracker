@@ -159,4 +159,20 @@ class InventoryGroupingTest {
         val spools = listOf(row("pla", "", 5, "אדום", 20, SEALED), row("PLA", "", 6, "אדום", 20, SEALED))
         assertEquals(listOf("PLA"), byMaterial(spools).map { it.title })
     }
+
+    @Test
+    fun `list row keys are distinct in every view when two families share a color`() {
+        val spools = listOf(
+            row("PLA", "", 1, "לבן", 10, SEALED),
+            row("PETG", "", 2, "לבן", 10, SEALED),
+            row("PETG", "Rapid", 4, "לבן", 10, SEALED),
+            row("PLA", "", 1, "שחור", 11, SEALED),
+        )
+        listOf(byMaterial(spools), byColor(spools), byStatus(spools)).forEach { sections ->
+            val keys = sections.flatMap { s -> s.rows.map { listRowKey(s, it) } }
+            assertEquals(keys.size, keys.toSet().size)
+        }
+        val tableKeys = statusTable(spools).flatMap { s -> s.rows.map { statusRowKey(s, it) } }
+        assertEquals(tableKeys.size, tableKeys.toSet().size)
+    }
 }

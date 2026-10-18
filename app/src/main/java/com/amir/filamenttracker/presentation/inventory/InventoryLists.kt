@@ -25,6 +25,9 @@ private fun ListRow.supportingText(): String {
     return if (slots.isEmpty()) text else "$text · חריץ ${slots.joinToString(", ")}"
 }
 
+/** Lazy-list key: the section title and color alone repeat across families, so the family is part of it. */
+internal fun listRowKey(section: ListSection, row: ListRow) = "r-${section.title}-${row.family}-${row.colorId}"
+
 fun LazyListScope.listSections(sections: List<ListSection>, onRowClick: (ListRow) -> Unit) {
     sections.forEach { section ->
         item(key = "h-${section.title}") {
@@ -41,7 +44,7 @@ fun LazyListScope.listSections(sections: List<ListSection>, onRowClick: (ListRow
                 }
             }
         }
-        items(section.rows, key = { "r-${section.title}-${it.colorId}" }) { row ->
+        items(section.rows, key = { listRowKey(section, it) }) { row ->
             ListItem(
                 headlineContent = { Text(row.label) },
                 supportingContent = { Text(row.supportingText()) },

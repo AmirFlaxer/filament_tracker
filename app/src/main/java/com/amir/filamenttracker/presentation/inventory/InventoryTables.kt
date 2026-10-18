@@ -55,6 +55,8 @@ private fun HeaderText(text: String, modifier: Modifier) {
     )
 }
 
+internal fun statusRowKey(section: StatusTableSection, row: StatusTableRow) = "sr-${section.family}-${row.colorId}"
+
 fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClick: (StatusTableRow) -> Unit) {
     item(key = "st-header") {
         Column {
@@ -78,7 +80,7 @@ fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClic
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        items(section.rows, key = { "sr-${section.family}-${it.colorId}" }) { row ->
+        items(section.rows, key = { statusRowKey(section, it) }) { row ->
             Row(
                 Modifier.fillMaxWidth().clickable { onRowClick(row) }.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
