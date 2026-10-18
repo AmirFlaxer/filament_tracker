@@ -6,6 +6,7 @@ import com.amir.filamenttracker.data.db.ColorEntity
 import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.ProductEntity
 import com.amir.filamenttracker.data.db.ProductRow
+import com.amir.filamenttracker.data.db.StockTargetEntity
 import com.amir.filamenttracker.domain.ColorHex
 import com.amir.filamenttracker.domain.composeMaterialName
 import kotlinx.coroutines.flow.Flow
@@ -97,8 +98,19 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         if (old != null && !old.family.equals(cleanFamily, ignoreCase = true) &&
             dao.otherActiveMaterialsInFamily(id, old.family) == 0
         ) {
-            stockDao.renameFamily(old.family, cleanFamily)
+            val moving = stockDao.targetsOfFamily(old.family)
             stockDao.deleteForFamily(old.family)
+            for (target in moving) {
+                // Merge into an existing target of the new family (any spelling), keeping the highest minimum.
+                val existing = stockDao.targetsOfFamily(cleanFamily).firstOrNull { it.colorId == target.colorId }
+                stockDao.delete(cleanFamily, target.colorId)
+                stockDao.upsert(
+                    StockTargetEntity(
+                        existing?.family ?: cleanFamily, target.colorId,
+                        maxOf(target.minSealed, existing?.minSealed ?: 0),
+                    ),
+                )
+            }
         }
     }
 

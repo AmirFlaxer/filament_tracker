@@ -193,6 +193,23 @@ class CatalogRepositoryTest {
     }
 
     @Test
+    fun `renaming a family onto one with a target merges to the highest minimum`() = runTest {
+        for ((destFamily, destMin, expectedFamily) in listOf(Triple("PETG", 1, "PETG"), Triple("petg", 1, "petg"), Triple("PETG", 5, "PETG"))) {
+            val black = repo.addColor("שחור$destFamily$destMin")
+            val abs = repo.addMaterial("ABS")
+            db.stockDao().upsert(StockTargetEntity(destFamily, black, destMin))
+            db.stockDao().upsert(StockTargetEntity("ABS", black, 3))
+            repo.updateMaterial(abs, "PETG", "HF")
+            val rows = db.stockDao().targetRows().first().filter { it.colorId == black && it.minSealed != null }
+            assertEquals(1, rows.size)
+            assertEquals(expectedFamily, rows.single().family)
+            assertEquals(maxOf(3, destMin), rows.single().minSealed)
+            repo.removeMaterial(abs)
+            db.stockDao().deleteForColor(black)
+        }
+    }
+
+    @Test
     fun `brands are distinct ignoring case, sorted, and include archived products`() = runTest {
         repo.createProduct("Sunlu", "PLA", "", "שחור", "", 1000, "")
         repo.createProduct("sunlu", "PLA", "", "לבן", "", 1000, "")

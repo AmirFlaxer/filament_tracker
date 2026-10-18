@@ -62,6 +62,20 @@ class MigrationTest {
     }
 
     @Test
+    fun `families that differ only by case merge using the lowest id spelling and the highest minimum`() {
+        val v1 = helper.createDatabase("migration-case.db", 1)
+        v1.execSQL("INSERT INTO materials (id, name, archived) VALUES (1,'petg HF',0),(2,'PETG',0)")
+        v1.execSQL("INSERT INTO colors (id, name, hex, archived) VALUES (10,'שחור',NULL,0)")
+        v1.execSQL("INSERT INTO stock_targets (materialId, colorId, minSealed) VALUES (1,10,1),(2,10,2)")
+        v1.close()
+        val db = helper.runMigrationsAndValidate("migration-case.db", 2, true, MIGRATION_1_2)
+        val targets = db.query("SELECT family, colorId, minSealed FROM stock_targets").use { c ->
+            buildList { while (c.moveToNext()) add(Triple(c.getString(0), c.getLong(1), c.getInt(2))) }
+        }
+        assertEquals(listOf(Triple("petg", 10L, 2)), targets)
+    }
+
+    @Test
     fun `migration of an empty database validates`() {
         helper.createDatabase("migration-empty.db", 1).close()
         helper.runMigrationsAndValidate("migration-empty.db", 2, true, MIGRATION_1_2).close()

@@ -40,8 +40,8 @@ interface StockDao {
     @Query("DELETE FROM stock_targets WHERE family = :family COLLATE NOCASE")
     suspend fun deleteForFamily(family: String)
 
-    @Query("UPDATE OR IGNORE stock_targets SET family = :newFamily WHERE family = :oldFamily COLLATE NOCASE")
-    suspend fun renameFamily(oldFamily: String, newFamily: String)
+    @Query("SELECT * FROM stock_targets WHERE family = :family COLLATE NOCASE")
+    suspend fun targetsOfFamily(family: String): List<StockTargetEntity>
 
     @Query("DELETE FROM stock_targets WHERE colorId = :colorId")
     suspend fun deleteForColor(colorId: Long)

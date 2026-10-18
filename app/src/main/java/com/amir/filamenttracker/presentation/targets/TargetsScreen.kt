@@ -45,7 +45,7 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
                     Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר וצבע.", Modifier.padding(16.dp))
                 }
             }
-            items(rows, key = { "${it.family.uppercase()}-${it.colorId}" }) { row ->
+            items(rows, key = { "${it.family}-${it.colorId}" }) { row ->
                 val tracked = row.minSealed != null
                 ListItem(
                     headlineContent = { Text("${row.family} ${row.colorName}") },
