@@ -39,6 +39,8 @@ class DatabaseTest {
 
         val row = db.spoolDao().spoolRows().first().single()
         assertEquals("TEMPlast PLA שחור", "${row.brand} ${row.materialName} ${row.colorName}")
+        assertEquals("PLA", row.materialFamily)
+        assertEquals("", row.materialVariant)
         assertEquals(SpoolStatus.IN_USE, row.status)
         assertEquals(2, row.amsSlot)
     }

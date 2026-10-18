@@ -15,6 +15,8 @@ data class SpoolRow(
     val weightGrams: Int,
     val materialId: Long,
     val materialName: String,
+    val materialFamily: String,
+    val materialVariant: String,
     val colorId: Long,
     val colorName: String,
     val colorHex: String?,
@@ -27,6 +29,8 @@ data class ProductRow(
     val note: String,
     val materialId: Long,
     val materialName: String,
+    val materialFamily: String,
+    val materialVariant: String,
     val colorId: Long,
     val colorName: String,
     val colorHex: String?,
@@ -42,10 +46,9 @@ data class OrderSummary(
     val pendingCount: Int,
 )
 
-/** A material+color pair the user has products for. [minSealed] is null when not tracked. */
+/** A main material (family) + color pair the user has products for. [minSealed] is null when not tracked. */
 data class TargetRow(
-    val materialId: Long,
-    val materialName: String,
+    val family: String,
     val colorId: Long,
     val colorName: String,
     val colorHex: String?,
@@ -68,7 +71,7 @@ val ProductRow.title: String get() = "$brand $materialName $colorName"
 internal const val SPOOL_ROW_SELECT = """
     SELECT s.id AS spoolId, s.status AS status, s.amsSlot AS amsSlot, s.orderId AS orderId,
            p.id AS productId, p.brand AS brand, p.weightGrams AS weightGrams,
-           m.id AS materialId, m.name AS materialName,
+           m.id AS materialId, m.name AS materialName, m.family AS materialFamily, m.variant AS materialVariant,
            c.id AS colorId, c.name AS colorName, c.hex AS colorHex
     FROM spools s
     JOIN products p ON p.id = s.productId

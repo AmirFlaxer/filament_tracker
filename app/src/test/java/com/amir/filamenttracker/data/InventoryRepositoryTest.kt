@@ -39,8 +39,8 @@ class InventoryRepositoryTest {
         db = inMemoryDb()
         repo = InventoryRepository(db, clock)
         val catalog = CatalogRepository(db)
-        black = catalog.createProduct("TEMPlast", "PLA", "שחור", "#000000", 1000, "")
-        white = catalog.createProduct("TEMPlast", "PLA", "לבן", "#FFFFFF", 1000, "")
+        black = catalog.createProduct("TEMPlast", "PLA", "", "שחור", "#000000", 1000, "")
+        white = catalog.createProduct("TEMPlast", "PLA", "", "לבן", "#FFFFFF", 1000, "")
     }
 
     @After fun tearDown() { db.close() }

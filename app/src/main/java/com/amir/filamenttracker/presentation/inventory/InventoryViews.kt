@@ -134,7 +134,7 @@ fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
 fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable {
     val rows = live(spools)
     val missing = alerts.filter { it.kind == AlertKind.MISSING }
-    val names = familyNames(rows.map { it.materialName } + missing.map { it.materialName })
+    val names = familyNames(rows.map { it.materialName } + missing.map { it.family })
     val families = names.keys.sorted()
 
     // One entry per color, taking name and hue from whichever side mentions it.
@@ -145,14 +145,14 @@ fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable
     val tableRows = colors.map { (colorId, colorName, colorHex) ->
         val cells = families.map { family ->
             val inCell = rows.filter { it.colorId == colorId && familyKey(it.materialName) == family }
-            val missingHere = missing.filter { it.colorId == colorId && familyKey(it.materialName) == family }
+            val missingHere = missing.filter { it.colorId == colorId && familyKey(it.family) == family }
             if (inCell.isEmpty() && missingHere.isEmpty()) {
                 null
             } else {
                 val materials = if (inCell.isNotEmpty()) {
                     inCell.map { CellMaterial(it.materialId, it.materialName) }
                 } else {
-                    missingHere.map { CellMaterial(it.materialId, it.materialName) }
+                    emptyList()
                 }
                 MaterialCell(
                     counts = inCell.countsByStatus(),

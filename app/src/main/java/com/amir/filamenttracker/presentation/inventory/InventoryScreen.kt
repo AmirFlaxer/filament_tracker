@@ -84,6 +84,7 @@ fun InventoryScreen(
                     is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.materialId, it.colorId) }
                     is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.materialId, it.colorId) }
                     is ViewContent.MaterialTableContent -> materialTableItems(content.table) { colorId, cell ->
+                        if (cell.missing) return@materialTableItems
                         if (cell.materials.size == 1) {
                             onColorClick(cell.materials.single().materialId, colorId)
                         } else {
@@ -151,7 +152,7 @@ private fun AlertsCard(alerts: List<AlertRow>) {
                         group.forEach { alert ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ColorDot(alert.colorHex, size = 14.dp)
-                                Text("${alert.materialName} ${alert.colorName}")
+                                Text("${alert.family} ${alert.colorName}")
                             }
                         }
                     }

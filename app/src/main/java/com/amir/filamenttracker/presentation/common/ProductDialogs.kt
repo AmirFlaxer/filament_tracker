@@ -30,6 +30,8 @@ import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.domain.ColorHex
+import com.amir.filamenttracker.domain.MaterialKind
+import com.amir.filamenttracker.domain.materialKind
 
 data class NewProductInput(
     val brand: String,
@@ -38,7 +40,10 @@ data class NewProductInput(
     val colorHex: String,
     val weightGrams: Int,
     val note: String,
-)
+) {
+    /** Stop-gap until the dialog has separate fields: the typed material name is split into family and variant. */
+    val materialKind: MaterialKind get() = materialKind(materialName)
+}
 
 /**
  * Material and color are typed as names: existing ones can be picked from chips, and a new

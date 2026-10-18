@@ -15,6 +15,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.amir.filamenttracker.domain.materialKind
 
 class InventoryGroupingTest {
     private var nextId = 1L
@@ -23,11 +24,12 @@ class InventoryGroupingTest {
     ) = SpoolRow(
         spoolId = nextId++, status = status, amsSlot = slot, orderId = null, productId = 1, brand = "X",
         weightGrams = 1000, materialId = materialId, materialName = material,
+        materialFamily = materialKind(material).family, materialVariant = materialKind(material).variant.orEmpty(),
         colorId = colorId, colorName = color, colorHex = null,
     )
 
-    private fun missing(material: String, materialId: Long, color: String, colorId: Long) = AlertRow(
-        kind = AlertKind.MISSING, materialId = materialId, materialName = material,
+    private fun missing(family: String, color: String, colorId: Long) = AlertRow(
+        kind = AlertKind.MISSING, family = family,
         colorId = colorId, colorName = color, colorHex = null,
         count = com.amir.filamenttracker.domain.StockCount(0, 0, 0), minSealed = 1,
     )
@@ -91,13 +93,13 @@ class InventoryGroupingTest {
 
     @Test
     fun `material table shows missing only for an empty cell`() {
-        val table = materialTable(sample, listOf(missing("PETG", 2, "כחול", 12)))
+        val table = materialTable(sample, listOf(missing("PETG", "כחול", 12)))
         val blue = table.rows.single { it.colorName == "כחול" }
         assertTrue(blue.cells[0]!!.missing)
         assertEquals(0, blue.cells[0]!!.total)
         assertNull(blue.cells[1])
 
-        val withMatte = materialTable(sample, listOf(missing("PLA Matte", 3, "לבן", 10)))
+        val withMatte = materialTable(sample, listOf(missing("PLA", "לבן", 10)))
         val whitePla = withMatte.rows.single { it.colorName == "לבן" }.cells[1]
         assertNotNull(whitePla)
         assertFalse(whitePla!!.missing)

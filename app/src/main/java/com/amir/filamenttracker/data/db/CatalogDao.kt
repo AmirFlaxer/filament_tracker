@@ -21,6 +21,7 @@ interface CatalogDao {
         """
         SELECT p.id AS productId, p.brand AS brand, p.weightGrams AS weightGrams, p.note AS note,
                m.id AS materialId, m.name AS materialName,
+               m.family AS materialFamily, m.variant AS materialVariant,
                c.id AS colorId, c.name AS colorName, c.hex AS colorHex
         FROM products p
         JOIN materials m ON m.id = p.materialId
@@ -34,6 +35,15 @@ interface CatalogDao {
     @Query("SELECT * FROM materials WHERE name = :name COLLATE NOCASE LIMIT 1")
     suspend fun materialByName(name: String): MaterialEntity?
 
+    @Query("SELECT * FROM materials WHERE family = :family COLLATE NOCASE AND variant = :variant COLLATE NOCASE ORDER BY id LIMIT 1")
+    suspend fun materialByFamilyVariant(family: String, variant: String): MaterialEntity?
+
+    @Query("SELECT * FROM materials WHERE id = :id")
+    suspend fun material(id: Long): MaterialEntity?
+
+    @Query("SELECT COUNT(*) FROM materials WHERE archived = 0 AND id != :id AND family = :family COLLATE NOCASE")
+    suspend fun otherActiveMaterialsInFamily(id: Long, family: String): Int
+
     @Query("SELECT * FROM colors WHERE name = :name COLLATE NOCASE LIMIT 1")
     suspend fun colorByName(name: String): ColorEntity?
 
@@ -41,8 +51,8 @@ interface CatalogDao {
     @Insert suspend fun insertColor(color: ColorEntity): Long
     @Insert suspend fun insertProduct(product: ProductEntity): Long
 
-    @Query("UPDATE materials SET name = :name WHERE id = :id")
-    suspend fun renameMaterial(id: Long, name: String)
+    @Query("UPDATE materials SET name = :name, family = :family, variant = :variant WHERE id = :id")
+    suspend fun updateMaterial(id: Long, name: String, family: String, variant: String)
 
     @Query("UPDATE colors SET name = :name, hex = :hex WHERE id = :id")
     suspend fun updateColor(id: Long, name: String, hex: String?)

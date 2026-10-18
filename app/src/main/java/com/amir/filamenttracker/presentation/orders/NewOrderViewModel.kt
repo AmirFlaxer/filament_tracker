@@ -36,7 +36,7 @@ class NewOrderViewModel @Inject constructor(
         quantities.update { if (n <= 0) it - productId else it + (productId to n) }
 
     fun createProductAndAdd(input: NewProductInput) = launchAction {
-        add(catalog.createProduct(input.brand, input.materialName, input.colorName, input.colorHex, input.weightGrams, input.note))
+        add(catalog.createProduct(input.brand, input.materialKind.family, input.materialKind.variant.orEmpty(), input.colorName, input.colorHex, input.weightGrams, input.note))
         "המוצר נשמר"
     }
 

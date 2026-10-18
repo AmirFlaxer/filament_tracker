@@ -7,6 +7,7 @@ import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.ProductEntity
 import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.domain.ColorHex
+import com.amir.filamenttracker.domain.composeMaterialName
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -28,12 +29,21 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         names.distinctBy { it.lowercase() }.sortedWith(String.CASE_INSENSITIVE_ORDER)
     }
 
-    /** Id of the material with this name: the existing one (revived if archived) or a new one. */
-    suspend fun addMaterial(name: String): Long = db.withTransaction {
-        val clean = cleanName(name)
-        val existing = dao.materialByName(clean)
+    /**
+     * Id of the material with this main material and sub-type: the existing one (revived if
+     * archived), else one whose composed name matches, else a new one.
+     */
+    suspend fun addMaterial(family: String, variant: String = ""): Long = db.withTransaction {
+        val cleanFamily = cleanName(family, what = "חומר ראשי")
+        val cleanVariant = cleanText(variant)
+        val existing = dao.materialByFamilyVariant(cleanFamily, cleanVariant)
+            ?: dao.materialByName(composeMaterialName(cleanFamily, cleanVariant))
         if (existing == null) {
-            dao.insertMaterial(MaterialEntity(name = clean))
+            dao.insertMaterial(
+                MaterialEntity(
+                    name = composeMaterialName(cleanFamily, cleanVariant), family = cleanFamily, variant = cleanVariant,
+                ),
+            )
         } else {
             if (existing.archived) dao.setMaterialArchived(existing.id, false)
             existing.id
@@ -56,7 +66,8 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
 
     suspend fun createProduct(
         brand: String,
-        materialName: String,
+        materialFamily: String,
+        materialVariant: String,
         colorName: String,
         colorHex: String,
         weightGrams: Int,
@@ -64,7 +75,7 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     ): Long = db.withTransaction {
         val cleanBrand = cleanName(brand, what = "מותג")
         require(weightGrams > 0) { "משקל חייב להיות גדול מאפס" }
-        val materialId = addMaterial(materialName)
+        val materialId = addMaterial(materialFamily, materialVariant)
         val colorId = addColor(colorName, colorHex)
         dao.insertProduct(
             ProductEntity(
@@ -74,11 +85,21 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         )
     }
 
-    suspend fun renameMaterial(id: Long, name: String) = db.withTransaction {
-        val clean = cleanName(name)
-        val clash = dao.materialByName(clean)
-        require(clash == null || clash.id == id) { "כבר קיים חומר בשם $clean" }
-        dao.renameMaterial(id, clean)
+    suspend fun updateMaterial(id: Long, family: String, variant: String) = db.withTransaction {
+        val cleanFamily = cleanName(family, what = "חומר ראשי")
+        val cleanVariant = cleanText(variant)
+        val name = composeMaterialName(cleanFamily, cleanVariant)
+        val clash = dao.materialByName(name)
+        require(clash == null || clash.id == id) { "כבר קיים חומר בשם $name" }
+        val old = dao.material(id)
+        dao.updateMaterial(id, name, cleanFamily, cleanVariant)
+        // A renamed family takes its targets with it, unless another material still uses the old one.
+        if (old != null && !old.family.equals(cleanFamily, ignoreCase = true) &&
+            dao.otherActiveMaterialsInFamily(id, old.family) == 0
+        ) {
+            stockDao.renameFamily(old.family, cleanFamily)
+            stockDao.deleteForFamily(old.family)
+        }
     }
 
     suspend fun updateColor(id: Long, name: String, hexInput: String) = db.withTransaction {
@@ -95,14 +116,17 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
 
     /** Spec section 4: archive when something still uses it, otherwise delete. */
     suspend fun removeMaterial(id: Long): RemoveResult = db.withTransaction {
-        if (dao.productCountForMaterial(id) > 0) {
+        val family = dao.material(id)?.family
+        val result = if (dao.productCountForMaterial(id) > 0) {
             dao.setMaterialArchived(id, true)
-            stockDao.deleteForMaterial(id)
             RemoveResult.ARCHIVED
         } else {
             dao.deleteMaterial(id)
             RemoveResult.DELETED
         }
+        // Targets belong to the main material: they go only with its last active material.
+        if (family != null && dao.otherActiveMaterialsInFamily(id, family) == 0) stockDao.deleteForFamily(family)
+        result
     }
 
     suspend fun removeColor(id: Long): RemoveResult = db.withTransaction {
@@ -126,9 +150,11 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         }
     }
 
+    private fun cleanText(raw: String): String = raw.trim().replace(Regex("[\\s\\p{Z}]+"), " ")
+
     // NOCASE lookups handle Latin case; this handles spaces, so "PLA " and "pla" are one row.
     private fun cleanName(raw: String, what: String = "שם"): String {
-        val clean = raw.trim().replace(Regex("[\\s\\p{Z}]+"), " ")
+        val clean = cleanText(raw)
         require(clean.isNotEmpty()) { "$what לא יכול להיות ריק" }
         return clean
     }
