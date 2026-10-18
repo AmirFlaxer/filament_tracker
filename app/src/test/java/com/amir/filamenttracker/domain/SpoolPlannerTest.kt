@@ -116,6 +116,12 @@ class SpoolPlannerTest {
     }
 
     @Test(expected = UndoNotPossibleException::class)
+    fun `undo is refused when the spool status no longer matches the event`() {
+        val spool = Spool(1, IN_USE, 2)
+        SpoolPlanner.undo(spool, SpoolEvent(5, 1, IN_USE, OPEN_STORED, 2, null, t), emptyList())
+    }
+
+    @Test(expected = UndoNotPossibleException::class)
     fun `creation event cannot be undone`() {
         val spool = Spool(1, SEALED, null)
         SpoolPlanner.undo(spool, SpoolEvent(5, 1, null, SEALED, null, null, t), emptyList())

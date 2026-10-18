@@ -6,7 +6,7 @@ import com.amir.filamenttracker.domain.model.SpoolStatus
 open class SpoolRuleException(message: String) : RuntimeException(message)
 
 class IllegalTransitionException(val from: SpoolStatus, val to: SpoolStatus) :
-    SpoolRuleException("הפעולה לא אפשרית במצב הנוכחי של הסליל ($from, $to)")
+    SpoolRuleException("הפעולה לא אפשרית במצב הנוכחי של הסליל")
 
 class SlotOccupiedException(val slot: Int) :
     SpoolRuleException("חריץ $slot תפוס. יש לפנות אותו קודם")

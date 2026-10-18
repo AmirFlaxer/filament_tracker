@@ -49,6 +49,9 @@ object SpoolPlanner {
         require(last.spoolId == target.id) { "event ${last.id} belongs to spool ${last.spoolId}" }
         val previous = last.fromStatus
             ?: throw UndoNotPossibleException("זו הפעולה הראשונה של הסליל, ואין מה לבטל")
+        if (target.status != last.toStatus) {
+            throw UndoNotPossibleException("מצב הסליל השתנה מאז הפעולה האחרונה, אי אפשר לבטל")
+        }
         val previousSlot = last.fromSlot
         if (previous == IN_USE && previousSlot != null &&
             inUse.any { it.amsSlot == previousSlot && it.id != target.id }

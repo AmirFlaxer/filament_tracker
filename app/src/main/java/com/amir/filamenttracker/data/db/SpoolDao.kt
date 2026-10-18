@@ -33,12 +33,15 @@ interface SpoolDao {
 
     @Insert suspend fun insertEvent(event: SpoolEventEntity): Long
 
-    // Events written in one transaction share a timestamp, so id breaks the tie.
-    @Query("SELECT * FROM spool_events WHERE spoolId = :spoolId ORDER BY at DESC, id DESC LIMIT 1")
+    // Order by id (autoincrement), not by time: a clock change must not make an older event look newest.
+    @Query("SELECT * FROM spool_events WHERE spoolId = :spoolId ORDER BY id DESC LIMIT 1")
     suspend fun lastEvent(spoolId: Long): SpoolEventEntity?
 
-    @Query("SELECT * FROM spool_events WHERE spoolId = :spoolId ORDER BY at DESC, id DESC")
+    @Query("SELECT * FROM spool_events WHERE spoolId = :spoolId ORDER BY id DESC")
     fun events(spoolId: Long): Flow<List<SpoolEventEntity>>
+
+    @Query("SELECT COUNT(*) FROM spool_events WHERE spoolId = :spoolId")
+    suspend fun eventCount(spoolId: Long): Int
 
     @Query("DELETE FROM spool_events WHERE id = :id")
     suspend fun deleteEvent(id: Long)
