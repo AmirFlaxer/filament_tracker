@@ -137,7 +137,9 @@ fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (colorId: Lon
     val scrolls = table.families.size > 3
     item(key = "mt-body") {
         val outer = if (scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
-        Column(outer.padding(horizontal = 16.dp)) {
+        // Inside horizontalScroll the width is unbounded, so the scrolling table gets an explicit width for its dividers.
+        val sized = if (scrolls) Modifier.width(NameWidth + FamilyWidth * table.families.size) else Modifier
+        Column(outer.padding(horizontal = 16.dp).then(sized)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("צבע", nameColumn(scrolls), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 table.families.forEach { HeaderText(it, Modifier.width(FamilyWidth)) }

@@ -40,9 +40,6 @@ interface SpoolDao {
     @Query("SELECT * FROM spool_events WHERE spoolId = :spoolId ORDER BY id DESC")
     fun events(spoolId: Long): Flow<List<SpoolEventEntity>>
 
-    @Query("SELECT COUNT(*) FROM spool_events WHERE spoolId = :spoolId")
-    suspend fun eventCount(spoolId: Long): Int
-
     @Query("DELETE FROM spool_events WHERE id = :id")
     suspend fun deleteEvent(id: Long)
 

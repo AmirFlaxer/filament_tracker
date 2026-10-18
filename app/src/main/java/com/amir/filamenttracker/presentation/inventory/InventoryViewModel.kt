@@ -12,11 +12,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 /** [view] is null until the saved choice has been read, so the list never flashes the wrong view. */
 data class InventoryUiState(
-    val loaded: Boolean = false,
     val alerts: List<AlertRow> = emptyList(),
     val view: InventoryView? = null,
     val spools: List<SpoolRow> = emptyList(),
@@ -30,10 +30,13 @@ class InventoryViewModel @Inject constructor(
 ) : BaseViewModel() {
     val state: StateFlow<InventoryUiState> =
         combine(inventory.spools, stock.alerts, preference.view) { spools, alerts, view ->
-            InventoryUiState(loaded = true, alerts = alerts, view = view, spools = spools)
+            InventoryUiState(alerts = alerts, view = view, spools = spools)
         }.asState(InventoryUiState())
 
     fun select(view: InventoryView) {
-        viewModelScope.launch { preference.set(view) }
+        viewModelScope.launch {
+            // A failed write only means the choice is not remembered; it must not crash the screen.
+            try { preference.set(view) } catch (_: IOException) { }
+        }
     }
 }

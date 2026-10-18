@@ -1,6 +1,5 @@
 package com.amir.filamenttracker.data
 
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -30,7 +29,7 @@ class InventoryViewPreferenceTest {
 
     @Before fun setUp() {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        store = PreferenceDataStoreFactory.create(scope = scope) { tmp.newFile("x.preferences_pb").also { it.delete() } }
+        store = createSettingsStore(scope) { tmp.newFile("x.preferences_pb").also { it.delete() } }
         pref = InventoryViewPreference(store)
     }
 
@@ -51,5 +50,12 @@ class InventoryViewPreferenceTest {
     fun `unknown stored value falls back to by material`() = runTest {
         store.edit { it[stringPreferencesKey("inventory_view")] = "NO_SUCH_VIEW" }
         assertEquals(InventoryView.BY_MATERIAL, pref.view.first())
+    }
+
+    @Test
+    fun `corrupted settings file falls back to by material`() = runTest {
+        val file = tmp.newFile("corrupt.preferences_pb").also { it.writeBytes(byteArrayOf(1, 2, 3, 99, -1, -2, 42)) }
+        val corrupted = InventoryViewPreference(createSettingsStore(scope) { file })
+        assertEquals(InventoryView.BY_MATERIAL, corrupted.view.first())
     }
 }

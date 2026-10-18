@@ -73,10 +73,10 @@ fun InventoryScreen(
         },
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
-            item { AlertsCard(state.alerts) }
             if (view != null && content != null) {
+                item(key = "alerts") { AlertsCard(state.alerts) }
                 item(key = "view-switcher") { ViewSwitcher(view, vm::select) }
-                if (spools.none { it.status != SpoolStatus.FINISHED }) {
+                if (content.isEmpty(spools)) {
                     item {
                         Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
                     }
@@ -101,6 +101,12 @@ private sealed interface ViewContent {
     data class Lists(val sections: List<ListSection>) : ViewContent
     data class StatusTable(val sections: List<StatusTableSection>) : ViewContent
     data class MaterialTableContent(val table: MaterialTable) : ViewContent
+}
+
+/** The empty text shows only when this view has nothing to show; the material table can still hold missing rows. */
+private fun ViewContent.isEmpty(spools: List<SpoolRow>): Boolean = when (this) {
+    is ViewContent.MaterialTableContent -> table.rows.isEmpty()
+    else -> spools.none { it.status != SpoolStatus.FINISHED }
 }
 
 private fun buildContent(view: InventoryView, spools: List<SpoolRow>, alerts: List<AlertRow>): ViewContent = when (view) {

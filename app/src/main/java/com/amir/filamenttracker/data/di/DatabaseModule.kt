@@ -2,10 +2,10 @@ package com.amir.filamenttracker.data.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.amir.filamenttracker.data.createSettingsStore
 import com.amir.filamenttracker.data.db.AppDatabase
 import dagger.Module
 import dagger.Provides
@@ -32,5 +32,5 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun preferences(@ApplicationContext context: Context): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
+        createSettingsStore { context.preferencesDataStoreFile("settings") }
 }

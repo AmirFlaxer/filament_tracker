@@ -13,6 +13,8 @@ class AddedTextTest {
         assertEquals("נוסף: גנרי PLA שחור, סגור", addedText("גנרי PLA שחור", 1, SEALED, null))
     @Test fun `one open stored`() =
         assertEquals("נוסף: גנרי PLA שחור, פתוח באחסון", addedText("גנרי PLA שחור", 1, OPEN_STORED, null))
-    @Test fun `several use the count label`() =
-        assertEquals("נוספו 3: גנרי PLA שחור, 3 סגורים", addedText("גנרי PLA שחור", 3, SEALED, null))
+    @Test fun `several sealed name the status without repeating the count`() =
+        assertEquals("נוספו 3: גנרי PLA שחור, סגורים", addedText("גנרי PLA שחור", 3, SEALED, null))
+    @Test fun `several open stored name the status without repeating the count`() =
+        assertEquals("נוספו 2: גנרי PLA שחור, פתוחים באחסון", addedText("גנרי PLA שחור", 2, OPEN_STORED, null))
 }

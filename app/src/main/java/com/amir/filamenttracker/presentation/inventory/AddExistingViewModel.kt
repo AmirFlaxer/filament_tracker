@@ -21,7 +21,12 @@ fun addedText(title: String, count: Int, status: SpoolStatus, slot: Int?): Strin
     if (count == 1) {
         "נוסף: $title, " + if (status == SpoolStatus.IN_USE && slot != null) "בחריץ $slot" else status.label()
     } else {
-        "נוספו $count: $title, ${countLabel(status, count)}"
+        // The count is already in the lead, so only the plural status word follows (spec section 6).
+        "נוספו $count: $title, " + when (status) {
+            SpoolStatus.SEALED -> "סגורים"
+            SpoolStatus.OPEN_STORED -> "פתוחים באחסון"
+            else -> status.label()
+        }
     }
 
 @HiltViewModel

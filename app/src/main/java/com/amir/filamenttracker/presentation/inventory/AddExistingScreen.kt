@@ -30,6 +30,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,12 +74,15 @@ fun AddExistingScreen(onBack: () -> Unit, vm: AddExistingViewModel = hiltViewMod
     var slot by rememberSaveable { mutableStateOf<Int?>(null) }
     var picker by remember { mutableStateOf(false) }
     var newProduct by remember { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    // The card sits at the top; bring it into view after "הוסף" in landscape or with the keyboard open.
+    LaunchedEffect(lastAdded) { if (lastAdded != null) scroll.animateScrollTo(0) }
     val inUse = status == SpoolStatus.IN_USE
     val canAdd = !adding && selected != null && (!inUse || slot != null)
 
     Scaffold(topBar = { BackTopBar("הוספת סליל קיים", onBack) }, snackbarHost = { SnackbarHost(host) }) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(scroll).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             lastAdded?.let { text ->
