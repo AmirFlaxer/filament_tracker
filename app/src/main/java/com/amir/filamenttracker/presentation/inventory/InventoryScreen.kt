@@ -62,10 +62,10 @@ fun InventoryScreen(
                 }
             }
             state.sections.forEach { section ->
-                item(key = "m-${section.materialName}") { SectionHeader(section.materialName) }
-                items(section.colors, key = { "c-${it.materialId}-${it.colorId}" }) { group ->
+                item(key = "m-${section.title}") { SectionHeader(section.title) }
+                items(section.rows, key = { "c-${it.materialId}-${it.colorId}" }) { group ->
                     ListItem(
-                        headlineContent = { Text(group.colorName) },
+                        headlineContent = { Text(group.label) },
                         supportingContent = { Text(group.countsText()) },
                         leadingContent = { ColorDot(group.colorHex, size = 28.dp) },
                         modifier = Modifier.clickable { onColorClick(group.materialId, group.colorId) },
@@ -78,7 +78,7 @@ fun InventoryScreen(
 
 private val displayOrder = listOf(SpoolStatus.IN_USE, SpoolStatus.OPEN_STORED, SpoolStatus.SEALED, SpoolStatus.ORDERED)
 
-private fun ColorGroup.countsText(): String =
+private fun ListRow.countsText(): String =
     displayOrder.mapNotNull { status -> counts[status]?.let { countLabel(status, it) } }.joinToString(" · ")
 
 @Composable
