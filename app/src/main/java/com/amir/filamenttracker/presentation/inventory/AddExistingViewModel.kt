@@ -7,12 +7,22 @@ import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.BaseViewModel
 import com.amir.filamenttracker.presentation.common.NewProductInput
+import com.amir.filamenttracker.presentation.common.countLabel
+import com.amir.filamenttracker.presentation.common.label
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+
+/** Confirmation line shown after a successful add. */
+fun addedText(title: String, count: Int, status: SpoolStatus, slot: Int?): String =
+    if (count == 1) {
+        "נוסף: $title, " + if (status == SpoolStatus.IN_USE && slot != null) "בחריץ $slot" else status.label()
+    } else {
+        "נוספו $count: $title, ${countLabel(status, count)}"
+    }
 
 @HiltViewModel
 class AddExistingViewModel @Inject constructor(
@@ -32,7 +42,13 @@ class AddExistingViewModel @Inject constructor(
         rows.filter { it.status == SpoolStatus.IN_USE && it.amsSlot != null }.associate { it.amsSlot!! to it.title }
     }.asState(emptyMap())
 
-    fun select(productId: Long) { selectedId.value = productId }
+    private val _lastAdded = MutableStateFlow<String?>(null)
+    val lastAdded: StateFlow<String?> = _lastAdded
+
+    fun select(productId: Long) {
+        selectedId.value = productId
+        _lastAdded.value = null
+    }
 
     fun createProduct(input: NewProductInput) = launchAction {
         selectedId.value = catalog.createProduct(
@@ -49,10 +65,12 @@ class AddExistingViewModel @Inject constructor(
         if (!_adding.compareAndSet(false, true)) return
         launchAction {
             try {
-                val productId = selectedId.value ?: throw IllegalArgumentException("יש לבחור מוצר")
-                val ids = inventory.addExisting(productId, quantity, status, slot)
+                // Capture before the suspend call: the text must describe the product actually added.
+                val product = selected.value ?: throw IllegalArgumentException("יש לבחור מוצר")
+                val ids = inventory.addExisting(product.productId, quantity, status, slot)
                 onSuccess()
-                if (ids.size == 1) "נוסף סליל אחד" else "נוספו ${ids.size} סלילים"
+                _lastAdded.value = addedText(product.title, ids.size, status, slot)
+                null
             } finally {
                 _adding.value = false
             }
