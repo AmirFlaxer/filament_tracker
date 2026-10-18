@@ -35,7 +35,7 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
         LazyColumn(Modifier.padding(padding).fillMaxSize()) {
             item {
                 Text(
-                    "סמן את השילובים שחייבים להיות תמיד במלאי. המספר הוא כמה סלילים סגורים לשמור בגיבוי.",
+                    "סמן את השילובים שחייבים להיות תמיד במלאי. המספר הוא כמה סלילים סגורים צריכים להישאר, ומתחתיו תופיע התראה.",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(16.dp),
                 )
@@ -49,7 +49,7 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
                 val tracked = row.minSealed != null
                 ListItem(
                     headlineContent = { Text("${row.materialName} ${row.colorName}") },
-                    supportingContent = { if (tracked) Text("לפחות ${row.minSealed} סגורים בגיבוי") },
+                    supportingContent = { if (tracked) Text(if (row.minSealed!! > 0) "התראה כשיש פחות מ-${row.minSealed} סגורים" else "התראה רק כשנגמר") },
                     leadingContent = { ColorDot(row.colorHex) },
                     trailingContent = {
                         Row(verticalAlignment = Alignment.CenterVertically) {

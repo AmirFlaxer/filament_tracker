@@ -30,6 +30,7 @@ import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
 import com.amir.filamenttracker.presentation.common.ColorDot
+import com.amir.filamenttracker.presentation.common.ConfirmDialog
 import com.amir.filamenttracker.presentation.common.NewProductDialog
 import com.amir.filamenttracker.presentation.common.RowActions
 import com.amir.filamenttracker.presentation.common.SectionHeader
@@ -42,7 +43,10 @@ private sealed interface CatalogDialog {
     data class EditMaterial(val material: MaterialEntity) : CatalogDialog
     data class EditColor(val color: ColorEntity) : CatalogDialog
     data class EditProduct(val product: ProductRow) : CatalogDialog
+    data class ConfirmRemove(val text: String, val onConfirm: () -> Unit) : CatalogDialog
 }
+
+private const val TARGETS_WARNING = " אם יש בו שימוש הוא יועבר לארכיון, והיעדים שלו ב\"שומר במלאי\" יימחקו."
 
 @Composable
 fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
@@ -75,7 +79,9 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
                     },
                     leadingContent = { ColorDot(p.colorHex) },
                     trailingContent = {
-                        RowActions(onEdit = { dialog = CatalogDialog.EditProduct(p) }, onRemove = { vm.removeProduct(p.productId) })
+                        RowActions(onEdit = { dialog = CatalogDialog.EditProduct(p) }, onRemove = {
+                            dialog = CatalogDialog.ConfirmRemove("להסיר את ${p.title}?") { vm.removeProduct(p.productId) }
+                        })
                     },
                 )
             }
@@ -84,7 +90,9 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
                 ListItem(
                     headlineContent = { Text(m.name) },
                     trailingContent = {
-                        RowActions(onEdit = { dialog = CatalogDialog.EditMaterial(m) }, onRemove = { vm.removeMaterial(m.id) })
+                        RowActions(onEdit = { dialog = CatalogDialog.EditMaterial(m) }, onRemove = {
+                            dialog = CatalogDialog.ConfirmRemove("להסיר את החומר ${m.name}?$TARGETS_WARNING") { vm.removeMaterial(m.id) }
+                        })
                     },
                 )
             }
@@ -94,7 +102,9 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
                     headlineContent = { Text(c.name) },
                     leadingContent = { ColorDot(c.hex) },
                     trailingContent = {
-                        RowActions(onEdit = { dialog = CatalogDialog.EditColor(c) }, onRemove = { vm.removeColor(c.id) })
+                        RowActions(onEdit = { dialog = CatalogDialog.EditColor(c) }, onRemove = {
+                            dialog = CatalogDialog.ConfirmRemove("להסיר את הצבע ${c.name}?$TARGETS_WARNING") { vm.removeColor(c.id) }
+                        })
                     },
                 )
             }
@@ -120,6 +130,7 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
             listOf("שם" to d.color.name, "גוון (למשל #1A2B3C)" to (d.color.hex ?: "")),
             close,
         ) { vm.updateColor(d.color.id, it[0], it[1]) }
+        is CatalogDialog.ConfirmRemove -> ConfirmDialog(d.text, "הסר", d.onConfirm, close)
         is CatalogDialog.EditProduct -> TextFieldsDialog(
             "עריכת מוצר",
             listOf("מותג" to d.product.brand, "משקל בגרמים" to "${d.product.weightGrams}", "הערה" to d.product.note),

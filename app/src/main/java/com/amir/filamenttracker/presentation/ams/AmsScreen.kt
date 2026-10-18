@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,7 +49,10 @@ fun AmsScreen(onSpoolClick: (Long) -> Unit, vm: AmsViewModel = hiltViewModel()) 
     var openSlot by rememberSaveable { mutableStateOf<Int?>(null) }
 
     Scaffold(contentWindowInsets = NoInsets, snackbarHost = { SnackbarHost(host) }) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             state.slots.forEachIndexed { index, spool ->
                 SlotCard(slot = index + 1, spool = spool, onClick = { openSlot = index + 1 })
             }
