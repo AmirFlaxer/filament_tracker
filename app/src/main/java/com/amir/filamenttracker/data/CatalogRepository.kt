@@ -90,12 +90,14 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         val cleanFamily = cleanName(family, what = "חומר ראשי")
         val cleanVariant = cleanText(variant)
         val name = composeMaterialName(cleanFamily, cleanVariant)
-        val clash = dao.materialByFamilyVariant(cleanFamily, cleanVariant) ?: dao.materialByName(name)
-        require(clash == null || clash.id == id) { "כבר קיים חומר עם אותו חומר ראשי ותת-סוג" }
+        val clash = listOfNotNull(dao.materialByFamilyVariant(cleanFamily, cleanVariant), dao.materialByName(name))
+            .firstOrNull { it.id != id }
+        require(clash == null) { "כבר קיים חומר עם אותו חומר ראשי ותת-סוג" }
         val old = dao.material(id)
         dao.updateMaterial(id, name, cleanFamily, cleanVariant)
-        // A renamed family takes its targets with it, unless another material still uses the old one.
-        if (old != null && !old.family.equals(cleanFamily, ignoreCase = true) &&
+        // A renamed family (including a case-only change) takes its targets with it, unless another
+        // material still uses the old one.
+        if (old != null && old.family != cleanFamily &&
             dao.otherActiveMaterialsInFamily(id, old.family) == 0
         ) {
             val moving = stockDao.targetsOfFamily(old.family)

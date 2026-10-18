@@ -101,9 +101,9 @@ fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClic
 
 private val cellOrder = listOf(SpoolStatus.IN_USE, SpoolStatus.OPEN_STORED, SpoolStatus.SEALED, SpoolStatus.ORDERED)
 
-/** The cell breakdown, e.g. "1 פתוח · 3 סגורים". */
-private fun MaterialCell.detail(): String =
-    cellOrder.mapNotNull { status -> counts[status]?.let { countLabel(status, it) } }.joinToString(" · ")
+/** The cell breakdown, one status per line, e.g. "1 פתוח" and "3 סגורים". */
+private fun MaterialCell.details(): List<String> =
+    cellOrder.mapNotNull { status -> counts[status]?.let { countLabel(status, it) } }
 
 @Composable
 private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
@@ -118,12 +118,14 @@ private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
             }
             else -> {
                 Text("${cell.total}", fontWeight = FontWeight.Bold)
-                Text(
-                    cell.detail(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+                cell.details().forEach { line ->
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }

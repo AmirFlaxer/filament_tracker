@@ -2,6 +2,7 @@ package com.amir.filamenttracker.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.amir.filamenttracker.data.db.AppDatabase
+import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.SpoolEntity
 import com.amir.filamenttracker.data.db.StockTargetEntity
 import com.amir.filamenttracker.domain.model.SpoolStatus
@@ -162,6 +163,29 @@ class CatalogRepositoryTest {
         db.catalogDao().insertMaterial(com.amir.filamenttracker.data.db.MaterialEntity(name = "PETG Rapid", family = "Other", variant = "X"))
         val legacy = db.catalogDao().materialByName("PETG Rapid")!!.id
         assertEquals(legacy, repo.addMaterial("PETG", "Rapid"))
+    }
+
+    @Test
+    fun `editing onto the composed name of a legacy twin is rejected without touching the database`() = runTest {
+        val dao = db.catalogDao()
+        val rapidPetg = dao.insertMaterial(MaterialEntity(name = "Rapid PETG", family = "PETG", variant = "Rapid"))
+        val petgRapid = dao.insertMaterial(MaterialEntity(name = "PETG Rapid", family = "PETG", variant = "Rapid"))
+        val error = runCatching { repo.updateMaterial(rapidPetg, "PETG", "Rapid") }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertEquals("Rapid PETG", dao.material(rapidPetg)!!.name)
+        assertEquals("PETG Rapid", dao.material(petgRapid)!!.name)
+    }
+
+    @Test
+    fun `a case-only family change renames the spelling of the family targets`() = runTest {
+        repo.removeMaterial(db.catalogDao().materialByName("PETG")!!.id)
+        val id = repo.addMaterial("petg", "Rapid")
+        val black = repo.addColor("שחור")
+        db.stockDao().upsert(StockTargetEntity("petg", black, 2))
+        repo.updateMaterial(id, "PETG", "Rapid")
+        val rows = db.stockDao().targetRows().first().filter { it.minSealed != null }
+        assertEquals(listOf("PETG"), rows.map { it.family })
+        assertEquals(listOf(2), rows.map { it.minSealed })
     }
 
     @Test

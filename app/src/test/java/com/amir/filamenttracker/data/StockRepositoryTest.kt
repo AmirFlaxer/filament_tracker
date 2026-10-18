@@ -95,6 +95,16 @@ class StockRepositoryTest {
     }
 
     @Test
+    fun `a target whose materials are all archived stays listed and alerts do not crash`() = runTest {
+        stock.setTarget("PLA", black, 1)
+        val plaId = db.catalogDao().materialByName("PLA")!!.id
+        db.catalogDao().setMaterialArchived(plaId, true)
+        val rows = stock.targetRows.first().filter { it.colorId == black && it.family.equals("PLA", true) }
+        assertEquals(listOf(1), rows.map { it.minSealed })
+        stock.alerts.first()
+    }
+
+    @Test
     fun `target family matches ignoring case`() = runTest {
         val catalog = CatalogRepository(db)
         val petg = catalog.createProduct("Bambu", "petg", "", "שחור", "", 1000, "")

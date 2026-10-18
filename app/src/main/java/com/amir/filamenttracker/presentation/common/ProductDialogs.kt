@@ -69,6 +69,17 @@ fun NewProductDialog(
 
     val weightValue = weight.toIntOrNull() ?: 0
     val hexValid = runCatching { ColorHex.normalize(hex) }.isSuccess
+    // A variant only makes sense inside its family: when the family changes, drop a variant the new one lacks.
+    fun changeFamily(newFamily: String) {
+        if (!newFamily.trim().equals(family.trim(), ignoreCase = true) &&
+            materials.none {
+                it.family.equals(newFamily.trim(), ignoreCase = true) && it.variant.equals(variant.trim(), ignoreCase = true)
+            }
+        ) {
+            variant = ""
+        }
+        family = newFamily
+    }
     val canSave = brand.isNotBlank() && family.isNotBlank() && color.isNotBlank() && weightValue > 0 && hexValid
 
     AlertDialog(
@@ -85,10 +96,10 @@ fun NewProductDialog(
                         FilterChip(selected = brand == b, onClick = { brand = b }, label = { Text(b) })
                     }
                 }
-                OutlinedTextField(family, { family = it }, label = { Text("חומר ראשי") }, singleLine = true)
+                OutlinedTextField(family, { changeFamily(it) }, label = { Text("חומר ראשי") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     families.forEach { f ->
-                        FilterChip(selected = family.trim().equals(f, ignoreCase = true), onClick = { family = f }, label = { Text(f) })
+                        FilterChip(selected = family.trim().equals(f, ignoreCase = true), onClick = { changeFamily(f) }, label = { Text(f) })
                     }
                 }
                 OutlinedTextField(variant, { variant = it }, label = { Text("תת-סוג, לא חובה") }, singleLine = true)

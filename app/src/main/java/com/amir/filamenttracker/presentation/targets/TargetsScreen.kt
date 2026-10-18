@@ -42,7 +42,7 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
             }
             if (rows.isEmpty()) {
                 item {
-                    Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר וצבע.", Modifier.padding(16.dp))
+                    Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר ראשי וצבע.", Modifier.padding(16.dp))
                 }
             }
             items(rows, key = { "${it.family}-${it.colorId}" }) { row ->

@@ -11,12 +11,12 @@
 - domain: תת-סוג "+", שם חומר מורכב (`composeMaterialName`), מחשבון מלאי גנרי.
 - Room: מעבר מסד 1 ל-2 (חומר ראשי ותת-סוג בטבלת החומרים, יעדים לפי חומר ראשי), איחוד יעדים בלי הבדל רישיות, בלי `fallbackToDestructiveMigration`.
 - ממשק: טופס ודיאלוגי קטלוג עם שני שדות ("חומר ראשי", "תת-סוג"), בדיקת התנגשות, תצוגות ויעדים לפי חומר ראשי.
-- בדיקות: 149 בדיקות-יחידה ירוקות (`./gradlew testDebugUnitTest assembleDebug` הצליח). גרסה 0.3.0 (`versionCode = 3`).
+- בדיקות: 153 בדיקות-יחידה ירוקות (`./gradlew testDebugUnitTest assembleDebug` הצליח). גרסה 0.3.0 (`versionCode = 3`).
 - אימות על האמולטור: שדרוג ממסד 1 (0.2.0) ל-2 שמר 12 מוצרים ו-10 סלילים, ו-Rapid PETG הפך ל-PETG/Rapid.
 - מסמכים: `SPEC.md` עודכן, עיצוב בסעיף 7ב ב-`docs/superpowers/specs/2026-10-18-inventory-views-delete-feedback-design.md`, תוכנית ב-`docs/superpowers/plans/2026-10-18-material-family-variant.md`.
 
 **מצב:** הענף `inventory-views` **לא מוזג ל-main**, ו-0.3.0 **עוד לא מותקנת על הטלפון** של אמיר (`3694e208`), שעליו עדיין 0.2.0.
-**לפני התקנה על הטלפון:** לגבות את קובץ המסד למחשב, ואז `install -r` בלבד (בלי uninstall).
+**לפני התקנה על הטלפון:** לסגור את האפליקציה בכוח (force-stop), ואז להעתיק את שלושת קבצי המסד (`filament_tracker.db`, `filament_tracker.db-wal`, `filament_tracker.db-shm`, כי Room עובד במצב WAL) למחשב, כל אחד בפקודה `adb -s 3694e208 exec-out run-as com.amir.filamenttracker cat databases/<קובץ> > <יעד-מקומי>` (עובד כי על הטלפון APK של דיבוג). אחרי כן `install -r` בלבד (בלי uninstall). אין דרך חזרה ממסד 2 ל-1 חוץ משחזור הגיבוי והתקנת 0.2.0 עם `install -r -d`.
 
 **מה פתוח:** תת-סוג תלוי יצרן (איחוד שמות הוא לעתיד), והתצרוכת עדיין לפי חומר מלא. שאר הפריטים ב-`SPEC.md`.
 

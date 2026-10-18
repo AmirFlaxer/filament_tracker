@@ -9,6 +9,7 @@ class MaterialFamilyTest {
     @Test fun `hyphen separates the variant`() = assertEquals(MaterialKind("PETG", "CF"), materialKind("PETG-CF"))
     @Test fun `extra spaces are trimmed`() = assertEquals(MaterialKind("PLA", "Silk"), materialKind("  PLA   Silk "))
     @Test fun `plus suffix is a variant`() = assertEquals(MaterialKind("PLA", "+"), materialKind("PLA+"))
+    @Test fun `lowercase plus suffix is a variant`() = assertEquals(MaterialKind("pla", "+"), materialKind("pla+"))
     @Test fun `suffix joins in front of remaining words`() =
         assertEquals(MaterialKind("PETG", "++ HF"), materialKind("PETG++ HF"))
     @Test fun `compose empty variant is the family`() = assertEquals("PETG", composeMaterialName("PETG", ""))
