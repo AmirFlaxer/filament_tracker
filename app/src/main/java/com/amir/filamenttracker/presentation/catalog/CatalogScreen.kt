@@ -119,13 +119,17 @@ fun CatalogScreen(onBack: () -> Unit, vm: CatalogViewModel = hiltViewModel()) {
             vm.createProduct(it)
             close()
         }
-        CatalogDialog.NewMaterial -> TextFieldsDialog("חומר חדש", listOf("שם" to ""), close) { vm.addMaterial(it[0]) }
+        CatalogDialog.NewMaterial -> TextFieldsDialog("חומר חדש", listOf("חומר ראשי" to "", "תת-סוג, לא חובה" to ""), close) {
+            vm.addMaterial(it[0], it[1])
+        }
         CatalogDialog.NewColor -> TextFieldsDialog("צבע חדש", listOf("שם" to "", "גוון (למשל #1A2B3C)" to ""), close) {
             vm.addColor(it[0], it[1])
         }
-        is CatalogDialog.EditMaterial -> TextFieldsDialog("עריכת חומר", listOf("שם" to d.material.name), close) {
-            vm.renameMaterial(d.material.id, it[0])
-        }
+        is CatalogDialog.EditMaterial -> TextFieldsDialog(
+            "עריכת חומר",
+            listOf("חומר ראשי" to d.material.family, "תת-סוג, לא חובה" to d.material.variant),
+            close,
+        ) { vm.updateMaterial(d.material.id, it[0], it[1]) }
         is CatalogDialog.EditColor -> TextFieldsDialog(
             "עריכת צבע",
             listOf("שם" to d.color.name, "גוון (למשל #1A2B3C)" to (d.color.hex ?: "")),

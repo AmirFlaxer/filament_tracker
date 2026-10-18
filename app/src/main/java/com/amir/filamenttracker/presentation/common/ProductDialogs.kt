@@ -30,24 +30,20 @@ import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.domain.ColorHex
-import com.amir.filamenttracker.domain.MaterialKind
-import com.amir.filamenttracker.domain.materialKind
 
 data class NewProductInput(
     val brand: String,
-    val materialName: String,
+    val materialFamily: String,
+    val materialVariant: String,
     val colorName: String,
     val colorHex: String,
     val weightGrams: Int,
     val note: String,
-) {
-    /** Stop-gap until the dialog has separate fields: the typed material name is split into family and variant. */
-    val materialKind: MaterialKind get() = materialKind(materialName)
-}
+)
 
 /**
- * Material and color are typed as names: existing ones can be picked from chips, and a new
- * name creates a new material or color (CatalogRepository merges names that already exist).
+ * Main material, sub-type and color are typed as names: existing ones can be picked from chips,
+ * and a new name creates a new material or color (CatalogRepository merges ones that already exist).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -59,15 +55,21 @@ fun NewProductDialog(
     onConfirm: (NewProductInput) -> Unit,
 ) {
     var brand by rememberSaveable { mutableStateOf("") }
-    var material by rememberSaveable { mutableStateOf(materials.firstOrNull()?.name ?: "") }
+    var family by rememberSaveable { mutableStateOf(materials.firstOrNull()?.family ?: "") }
+    var variant by rememberSaveable { mutableStateOf("") }
     var color by rememberSaveable { mutableStateOf("") }
     var hex by rememberSaveable { mutableStateOf("") }
     var weight by rememberSaveable { mutableStateOf("1000") }
     var note by rememberSaveable { mutableStateOf("") }
 
+    val families = materials.map { it.family }.distinctBy { it.uppercase() }
+    val variants = materials
+        .filter { it.family.equals(family.trim(), ignoreCase = true) && it.variant.isNotBlank() }
+        .map { it.variant }.distinctBy { it.uppercase() }
+
     val weightValue = weight.toIntOrNull() ?: 0
     val hexValid = runCatching { ColorHex.normalize(hex) }.isSuccess
-    val canSave = brand.isNotBlank() && material.isNotBlank() && color.isNotBlank() && weightValue > 0 && hexValid
+    val canSave = brand.isNotBlank() && family.isNotBlank() && color.isNotBlank() && weightValue > 0 && hexValid
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -83,10 +85,16 @@ fun NewProductDialog(
                         FilterChip(selected = brand == b, onClick = { brand = b }, label = { Text(b) })
                     }
                 }
-                OutlinedTextField(material, { material = it }, label = { Text("חומר") }, singleLine = true)
+                OutlinedTextField(family, { family = it }, label = { Text("חומר ראשי") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    materials.forEach { m ->
-                        FilterChip(selected = material == m.name, onClick = { material = m.name }, label = { Text(m.name) })
+                    families.forEach { f ->
+                        FilterChip(selected = family.trim().equals(f, ignoreCase = true), onClick = { family = f }, label = { Text(f) })
+                    }
+                }
+                OutlinedTextField(variant, { variant = it }, label = { Text("תת-סוג, לא חובה") }, singleLine = true)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    variants.forEach { v ->
+                        FilterChip(selected = variant.trim().equals(v, ignoreCase = true), onClick = { variant = v }, label = { Text(v) })
                     }
                 }
                 OutlinedTextField(color, { color = it }, label = { Text("צבע") }, singleLine = true)
@@ -120,7 +128,7 @@ fun NewProductDialog(
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onConfirm(NewProductInput(brand, material, color, hex, weightValue, note)) },
+                onClick = { onConfirm(NewProductInput(brand, family, variant, color, hex, weightValue, note)) },
             ) { Text("שמור") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("ביטול") } },

@@ -3,8 +3,6 @@ package com.amir.filamenttracker.presentation.inventory
 import com.amir.filamenttracker.data.AlertRow
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.domain.AlertKind
-import com.amir.filamenttracker.domain.familyKey
-import com.amir.filamenttracker.domain.materialKind
 import com.amir.filamenttracker.domain.model.SpoolStatus
 
 data class ListRow(
@@ -46,9 +44,13 @@ data class MaterialTable(val families: List<String>, val rows: List<MaterialTabl
 /** Finished spools are history, not stock. Ordered ones stay, shown as "on the way". */
 private fun live(spools: List<SpoolRow>) = spools.filter { it.status != SpoolStatus.FINISHED }
 
+private fun familyKey(family: String) = family.uppercase()
+
 /** Family spelling per [familyKey]: taken from the alphabetically first material name, so it is stable. */
-private fun familyNames(materialNames: Collection<String>): Map<String, String> =
-    materialNames.distinct().sorted().reversed().associate { familyKey(it) to materialKind(it).family }
+private fun familyNames(spools: List<SpoolRow>, extraFamilies: Collection<String> = emptyList()): Map<String, String> {
+    val fromSpools = spools.sortedBy { it.materialName }.reversed().associate { familyKey(it.materialFamily) to it.materialFamily }
+    return extraFamilies.sorted().reversed().associate { familyKey(it) to it }.filterKeys { it !in fromSpools } + fromSpools
+}
 
 private fun List<SpoolRow>.countsByStatus(): Map<SpoolStatus, Int> = groupingBy { it.status }.eachCount()
 
@@ -56,11 +58,11 @@ private fun List<SpoolRow>.countsByStatus(): Map<SpoolStatus, Int> = groupingBy 
 private fun materialColorRows(spools: List<SpoolRow>): List<ListRow> =
     spools.groupBy { it.materialId to it.colorId }.values.map { group ->
         val first = group.first()
-        val variant = materialKind(first.materialName).variant
+        val variant = first.materialVariant
         ListRow(
             materialId = first.materialId,
             colorId = first.colorId,
-            label = if (variant == null) first.colorName else "${first.colorName} · $variant",
+            label = if (variant.isBlank()) first.colorName else "${first.colorName} · $variant",
             colorHex = first.colorHex,
             counts = group.countsByStatus(),
         )
@@ -68,8 +70,8 @@ private fun materialColorRows(spools: List<SpoolRow>): List<ListRow> =
 
 fun byMaterial(spools: List<SpoolRow>): List<ListSection> {
     val rows = live(spools)
-    val names = familyNames(rows.map { it.materialName })
-    return rows.groupBy { familyKey(it.materialName) }.toSortedMap().map { (key, group) ->
+    val names = familyNames(rows)
+    return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
         ListSection(names.getValue(key), null, materialColorRows(group))
     }
 }
@@ -113,8 +115,8 @@ fun byStatus(spools: List<SpoolRow>): List<ListSection> {
 
 fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
     val rows = live(spools)
-    val names = familyNames(rows.map { it.materialName })
-    return rows.groupBy { familyKey(it.materialName) }.toSortedMap().map { (key, group) ->
+    val names = familyNames(rows)
+    return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
         val tableRows = materialColorRows(group).map { row ->
             StatusTableRow(
                 materialId = row.materialId,
@@ -134,7 +136,7 @@ fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
 fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable {
     val rows = live(spools)
     val missing = alerts.filter { it.kind == AlertKind.MISSING }
-    val names = familyNames(rows.map { it.materialName } + missing.map { it.family })
+    val names = familyNames(rows, missing.map { it.family })
     val families = names.keys.sorted()
 
     // One entry per color, taking name and hue from whichever side mentions it.
@@ -144,7 +146,7 @@ fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable
 
     val tableRows = colors.map { (colorId, colorName, colorHex) ->
         val cells = families.map { family ->
-            val inCell = rows.filter { it.colorId == colorId && familyKey(it.materialName) == family }
+            val inCell = rows.filter { it.colorId == colorId && familyKey(it.materialFamily) == family }
             val missingHere = missing.filter { it.colorId == colorId && familyKey(it.family) == family }
             if (inCell.isEmpty() && missingHere.isEmpty()) {
                 null

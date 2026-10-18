@@ -114,6 +114,18 @@ class CatalogRepositoryTest {
         repo.updateMaterial(petg, "pla", "")
     }
 
+    @Test
+    fun `editing a material onto another family and variant is rejected ignoring case`() = runTest {
+        val rapid = repo.addMaterial("PETG", "Rapid")
+        val hf = repo.addMaterial("PETG", "HF")
+        val error = runCatching { repo.updateMaterial(hf, "petg", "rapid") }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertEquals("כבר קיים חומר עם אותו חומר ראשי ותת-סוג", error!!.message)
+        assertEquals("PETG HF", db.catalogDao().material(hf)!!.name)
+        // Editing a material to its own family and variant, only changing the case, is fine.
+        repo.updateMaterial(rapid, "PETG", "RAPID")
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `blank family is rejected`() = runTest { repo.addMaterial("  ", "Rapid") }
 

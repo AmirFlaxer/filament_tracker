@@ -15,16 +15,16 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import com.amir.filamenttracker.domain.materialKind
+import com.amir.filamenttracker.domain.composeMaterialName
 
 class InventoryGroupingTest {
     private var nextId = 1L
     private fun row(
-        material: String, materialId: Long, color: String, colorId: Long, status: SpoolStatus, slot: Int? = null,
+        family: String, variant: String, materialId: Long, color: String, colorId: Long, status: SpoolStatus, slot: Int? = null,
     ) = SpoolRow(
         spoolId = nextId++, status = status, amsSlot = slot, orderId = null, productId = 1, brand = "X",
-        weightGrams = 1000, materialId = materialId, materialName = material,
-        materialFamily = materialKind(material).family, materialVariant = materialKind(material).variant.orEmpty(),
+        weightGrams = 1000, materialId = materialId,
+        materialName = composeMaterialName(family, variant), materialFamily = family, materialVariant = variant,
         colorId = colorId, colorName = color, colorHex = null,
     )
 
@@ -35,12 +35,12 @@ class InventoryGroupingTest {
     )
 
     private val sample = listOf(
-        row("PLA", 1, "לבן", 10, IN_USE, slot = 2),
-        row("PLA", 1, "לבן", 10, SEALED),
-        row("PLA Matte", 3, "לבן", 10, OPEN_STORED),
-        row("PETG", 2, "לבן", 10, ORDERED),
-        row("PETG", 2, "שחור", 11, SEALED),
-        row("PETG", 2, "שחור", 11, FINISHED),
+        row("PLA", "", 1, "לבן", 10, IN_USE, slot = 2),
+        row("PLA", "", 1, "לבן", 10, SEALED),
+        row("PLA", "Matte", 3, "לבן", 10, OPEN_STORED),
+        row("PETG", "", 2, "לבן", 10, ORDERED),
+        row("PETG", "", 2, "שחור", 11, SEALED),
+        row("PETG", "", 2, "שחור", 11, FINISHED),
     )
 
     @Test
@@ -50,6 +50,15 @@ class InventoryGroupingTest {
         val pla = sections.single { it.title == "PLA" }
         assertEquals(listOf("לבן", "לבן · Matte"), pla.rows.map { it.label })
         assertEquals(mapOf(IN_USE to 1, SEALED to 1), pla.rows.first { it.label == "לבן" }.counts)
+    }
+
+    @Test
+    fun `a rapid variant of PETG goes in the PETG column and shows the variant`() {
+        val spools = sample + row("PETG", "Rapid", 4, "אפור", 12, SEALED)
+        val section = byMaterial(spools).single { it.title == "PETG" }
+        assertTrue(section.rows.any { it.label == "אפור · Rapid" })
+        assertEquals(listOf("PETG", "PLA"), materialTable(spools, emptyList()).families)
+        assertEquals(listOf("PETG", "PLA"), byMaterial(spools).map { it.title })
     }
 
     @Test
@@ -116,7 +125,7 @@ class InventoryGroupingTest {
 
     @Test
     fun `family spelling comes from the first material alphabetically`() {
-        val spools = listOf(row("pla", 5, "אדום", 20, SEALED), row("PLA", 6, "אדום", 20, SEALED))
+        val spools = listOf(row("pla", "", 5, "אדום", 20, SEALED), row("PLA", "", 6, "אדום", 20, SEALED))
         assertEquals(listOf("PLA"), byMaterial(spools).map { it.title })
     }
 }

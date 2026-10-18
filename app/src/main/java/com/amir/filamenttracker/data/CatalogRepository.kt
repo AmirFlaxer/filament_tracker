@@ -90,8 +90,8 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         val cleanFamily = cleanName(family, what = "חומר ראשי")
         val cleanVariant = cleanText(variant)
         val name = composeMaterialName(cleanFamily, cleanVariant)
-        val clash = dao.materialByName(name)
-        require(clash == null || clash.id == id) { "כבר קיים חומר בשם $name" }
+        val clash = dao.materialByFamilyVariant(cleanFamily, cleanVariant) ?: dao.materialByName(name)
+        require(clash == null || clash.id == id) { "כבר קיים חומר עם אותו חומר ראשי ותת-סוג" }
         val old = dao.material(id)
         dao.updateMaterial(id, name, cleanFamily, cleanVariant)
         // A renamed family takes its targets with it, unless another material still uses the old one.
