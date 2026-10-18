@@ -147,9 +147,10 @@ fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (colorId: Lon
             HorizontalDivider()
             table.rows.forEach { row ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Row(nameColumn(scrolls), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ColorDot(row.colorHex, size = 20.dp)
-                        Text(row.colorName, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    // One line per color: a long name is cut with an ellipsis instead of wrapping; the spools screen shows it in full.
+                    Row(nameColumn(scrolls), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ColorDot(row.colorHex, size = 16.dp)
+                        Text(row.colorName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     row.cells.forEach { cell -> MaterialTableCell(cell) { cell?.let { onCell(row.colorId, it) } } }
                 }
