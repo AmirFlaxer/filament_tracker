@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Filament spool, front view, centred at 54,54 inside the 66dp safe zone (radius 33). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Flange -->
+    <path
+        android:fillColor="#ECEFF1"
+        android:pathData="M24,54a30,30 0,1 0,60 0a30,30 0,1 0,-60 0z" />
+    <!-- Wound filament -->
+    <path
+        android:fillColor="#FF6D00"
+        android:pathData="M28,54a26,26 0,1 0,52 0a26,26 0,1 0,-52 0z" />
+    <!-- Winding lines -->
+    <path
+        android:pathData="M32,54a22,22 0,1 0,44 0a22,22 0,1 0,-44 0z"
+        android:strokeWidth="1.2"
+        android:strokeColor="#E65100" />
+    <path
+        android:pathData="M36,54a18,18 0,1 0,36 0a18,18 0,1 0,-36 0z"
+        android:strokeWidth="1.2"
+        android:strokeColor="#E65100" />
+    <!-- Hub with centre hole -->
+    <path
+        android:fillColor="#ECEFF1"
+        android:pathData="M42,54a12,12 0,1 0,24 0a12,12 0,1 0,-24 0z" />
+    <path
+        android:fillColor="#1E2A38"
+        android:pathData="M49,54a5,5 0,1 0,10 0a5,5 0,1 0,-10 0z" />
+    <!-- Loose end of the filament -->
+    <path
+        android:pathData="M78.4,62.9Q81,68 79,75"
+        android:strokeWidth="3"
+        android:strokeColor="#FF6D00"
+        android:strokeLineCap="round" />
+</vector>

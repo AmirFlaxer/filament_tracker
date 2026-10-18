@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Single-colour spool for Android 13+ themed icons: rim, filament band, hub. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M24,54a30,30 0,1 0,60 0a30,30 0,1 0,-60 0z M27,54a27,27 0,1 0,54 0a27,27 0,1 0,-54 0z M30,54a24,24 0,1 0,48 0a24,24 0,1 0,-48 0z M41,54a13,13 0,1 0,26 0a13,13 0,1 0,-26 0z M42,54a12,12 0,1 0,24 0a12,12 0,1 0,-24 0z M49,54a5,5 0,1 0,10 0a5,5 0,1 0,-10 0z" />
+</vector>
