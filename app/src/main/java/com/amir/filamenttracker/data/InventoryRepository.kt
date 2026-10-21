@@ -80,6 +80,33 @@ class InventoryRepository @Inject constructor(
         orderId
     }
 
+    /** Fixes a miscount: the new spools join as not yet arrived, even if the rest already did. */
+    suspend fun addToOrder(orderId: Long, productId: Long, quantity: Int): List<Long> = db.withTransaction {
+        require(quantity in 1..50) { "כמות חייבת להיות בין 1 ל-50" }
+        orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")
+        (1..quantity).map { insertWithEvent(productId, orderId, ORDERED, slot = null) }
+    }
+
+    suspend fun updateOrder(orderId: Long, vendor: String, orderNumber: String?, expectedAt: LocalDate?) =
+        db.withTransaction {
+            val order = orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")
+            orderDao.updateOrder(
+                order.copy(
+                    vendor = vendor.trim().ifEmpty { "Amazon" },
+                    orderNumber = orderNumber?.trim()?.ifEmpty { null },
+                    expectedAt = expectedAt,
+                ),
+            )
+        }
+
+    /** A wrong product typed into an order. A correction, not a status change, so no event is logged. */
+    suspend fun changeOrderedProduct(spoolId: Long, productId: Long) = db.withTransaction {
+        if (spoolOrThrow(spoolId).status != ORDERED) {
+            throw SpoolRuleException("אפשר להחליף מוצר רק לסליל שעדיין לא הגיע")
+        }
+        spoolDao.updateProduct(spoolId, productId)
+    }
+
     suspend fun markArrived(spoolIds: Collection<Long>) = db.withTransaction {
         apply(spoolIds.map { SpoolPlanner.move(spoolOrThrow(it), SEALED) })
     }

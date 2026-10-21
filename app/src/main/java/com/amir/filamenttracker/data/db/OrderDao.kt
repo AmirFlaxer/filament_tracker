@@ -3,6 +3,7 @@ package com.amir.filamenttracker.data.db
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -25,6 +26,11 @@ interface OrderDao {
 
     @Query("SELECT * FROM orders WHERE id = :id")
     fun order(id: Long): Flow<OrderEntity?>
+
+    @Query("SELECT * FROM orders WHERE id = :id")
+    suspend fun orderOnce(id: Long): OrderEntity?
+
+    @Update suspend fun updateOrder(order: OrderEntity)
 
     @Query("$SPOOL_ROW_SELECT WHERE s.orderId = :orderId ORDER BY m.name, c.name, s.id")
     fun orderSpools(orderId: Long): Flow<List<SpoolRow>>
