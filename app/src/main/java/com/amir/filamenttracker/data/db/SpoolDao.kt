@@ -28,6 +28,9 @@ interface SpoolDao {
     @Query("UPDATE spools SET status = :status, amsSlot = :slot WHERE id = :id")
     suspend fun updateState(id: Long, status: SpoolStatus, slot: Int?)
 
+    @Query("UPDATE spools SET productId = :productId WHERE id = :id")
+    suspend fun updateProduct(id: Long, productId: Long)
+
     @Query("DELETE FROM spools WHERE id = :id")
     suspend fun deleteSpool(id: Long)
 

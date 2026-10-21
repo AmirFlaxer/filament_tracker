@@ -179,6 +179,63 @@ class InventoryRepositoryTest {
     }
 
     @Test
+    fun `spools can be added to an existing order, even after everything arrived`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 5))
+        repo.markOrderArrived(orderId)
+        val added = repo.addToOrder(orderId, black, 1)
+        assertEquals(1, added.size)
+        assertEquals(ORDERED, spool(added.single()).status)
+        assertEquals(orderId, spool(added.single()).orderId)
+        assertEquals(ORDERED, events(added.single()).single().toStatus)
+        val summary = repo.orders.first().single()
+        assertEquals(6, summary.spoolCount)
+        assertEquals(1, summary.pendingCount)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `adding zero spools to an order is rejected`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 1))
+        repo.addToOrder(orderId, black, 0)
+    }
+
+    @Test(expected = SpoolRuleException::class)
+    fun `adding to a missing order is rejected`() = runTest { repo.addToOrder(999, black, 1) }
+
+    @Test
+    fun `order details can be corrected`() = runTest {
+        val orderId = repo.createOrder("Amazon", "111", null, mapOf(black to 1))
+        val date = java.time.LocalDate.of(2026, 10, 25)
+        repo.updateOrder(orderId, " AliExpress ", " 222 ", date)
+        val o = repo.order(orderId).first()!!
+        assertEquals("AliExpress", o.vendor)
+        assertEquals("222", o.orderNumber)
+        assertEquals(date, o.expectedAt)
+
+        repo.updateOrder(orderId, " ", "", null)
+        val cleared = repo.order(orderId).first()!!
+        assertEquals("Amazon", cleared.vendor)
+        assertNull(cleared.orderNumber)
+        assertNull(cleared.expectedAt)
+    }
+
+    @Test
+    fun `only a spool that has not arrived can change product`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 2))
+        val (a, b) = repo.orderSpools(orderId).first().map { it.spoolId }
+        repo.changeOrderedProduct(a, white)
+        assertEquals(white, spool(a).productId)
+        assertEquals(1, events(a).size) // a correction, not a status change
+
+        repo.markArrived(listOf(b))
+        try {
+            repo.changeOrderedProduct(b, white)
+            throw AssertionError("expected SpoolRuleException")
+        } catch (expected: SpoolRuleException) {
+        }
+        assertEquals(black, spool(b).productId)
+    }
+
+    @Test
     fun `loading into an occupied slot swaps without a constraint crash`() = runTest {
         val inSlot = repo.addExisting(white, 1, IN_USE, slot = 2).single()
         val next = repo.addExisting(black, 1, SEALED, slot = null).single()
