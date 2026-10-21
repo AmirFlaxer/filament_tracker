@@ -44,6 +44,7 @@ data class OrderSummary(
     val orderNumber: String?,
     val spoolCount: Int,
     val pendingCount: Int,
+    val archived: Boolean,
 )
 
 /** A main material (family) + color pair the user has products for. [minSealed] is null when not tracked. */

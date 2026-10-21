@@ -50,6 +50,8 @@ data class OrderEntity(
     val orderedAt: Instant,
     val expectedAt: LocalDate? = null,
     val orderNumber: String? = null,
+    /** Hidden from the main orders list. Only an order with nothing still on the way is archived. */
+    val archived: Boolean = false,
 )
 
 @Entity(

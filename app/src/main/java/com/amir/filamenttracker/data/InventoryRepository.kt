@@ -84,6 +84,7 @@ class InventoryRepository @Inject constructor(
     suspend fun addToOrder(orderId: Long, productId: Long, quantity: Int): List<Long> = db.withTransaction {
         require(quantity in 1..50) { "כמות חייבת להיות בין 1 ל-50" }
         orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")
+        orderDao.setArchived(orderId, false) // a spool on the way must not hide in the archive
         (1..quantity).map { insertWithEvent(productId, orderId, ORDERED, slot = null) }
     }
 
@@ -98,6 +99,14 @@ class InventoryRepository @Inject constructor(
                 ),
             )
         }
+
+    suspend fun setOrderArchived(orderId: Long, archived: Boolean) = db.withTransaction {
+        orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")
+        if (archived && spoolDao.spoolsOfOrder(orderId).any { it.status == ORDERED }) {
+            throw SpoolRuleException("אפשר להעביר לארכיון רק הזמנה שכל הסלילים בה הגיעו")
+        }
+        orderDao.setArchived(orderId, archived)
+    }
 
     /** A wrong product typed into an order. A correction, not a status change, so no event is logged. */
     suspend fun changeOrderedProduct(spoolId: Long, productId: Long) = db.withTransaction {
