@@ -8,6 +8,7 @@ import androidx.room.Room
 import com.amir.filamenttracker.data.createSettingsStore
 import com.amir.filamenttracker.data.db.AppDatabase
 import com.amir.filamenttracker.data.db.MIGRATION_1_2
+import com.amir.filamenttracker.data.db.MIGRATION_2_3
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,7 +25,7 @@ object DatabaseModule {
     fun database(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             .addCallback(AppDatabase.SEED_CALLBACK)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides

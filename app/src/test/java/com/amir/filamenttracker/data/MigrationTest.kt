@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.amir.filamenttracker.data.db.AppDatabase
 import com.amir.filamenttracker.data.db.MIGRATION_1_2
+import com.amir.filamenttracker.data.db.MIGRATION_2_3
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -59,6 +60,25 @@ class MigrationTest {
             buildSet { while (c.moveToNext()) add(Triple(c.getString(0), c.getLong(1), c.getInt(2))) }
         }
         assertEquals(setOf(Triple("PETG", 10L, 2), Triple("PLA", 11L, 1)), targets)
+    }
+
+    @Test
+    fun `migration 2 to 3 keeps every order and starts them all outside the archive`() {
+        val v2 = helper.createDatabase("migration-2-3.db", 2)
+        v2.execSQL("INSERT INTO materials (id, name, family, variant, archived) VALUES (1,'PLA','PLA','',0)")
+        v2.execSQL("INSERT INTO colors (id, name, hex, archived) VALUES (10,'שחור',NULL,0)")
+        v2.execSQL("INSERT INTO products (id, brand, materialId, colorId, weightGrams, note, archived) VALUES (1,'A',1,10,1000,'',0)")
+        v2.execSQL("INSERT INTO orders (id, vendor, orderedAt, expectedAt, orderNumber) VALUES (1,'Amazon',1000,NULL,'111'),(2,'Ali',2000,NULL,NULL)")
+        v2.execSQL("INSERT INTO spools (id, productId, orderId, status, amsSlot) VALUES (1,1,1,'SEALED',NULL),(2,1,2,'ORDERED',NULL)")
+        v2.close()
+
+        val db = helper.runMigrationsAndValidate("migration-2-3.db", 3, true, MIGRATION_2_3)
+
+        val orders = db.query("SELECT id, orderNumber, archived FROM orders ORDER BY id").use { c ->
+            buildList { while (c.moveToNext()) add(Triple(c.getLong(0), c.getString(1), c.getInt(2))) }
+        }
+        assertEquals(listOf(Triple(1L, "111", 0), Triple(2L, null, 0)), orders)
+        assertEquals(2, db.count("spools"))
     }
 
     @Test

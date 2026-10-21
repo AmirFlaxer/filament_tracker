@@ -236,6 +236,35 @@ class InventoryRepositoryTest {
     }
 
     @Test
+    fun `only an order that fully arrived can be archived, and it can come back`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 2))
+        try {
+            repo.setOrderArchived(orderId, true)
+            throw AssertionError("expected SpoolRuleException")
+        } catch (expected: SpoolRuleException) {
+        }
+        assertEquals(false, repo.orders.first().single().archived)
+
+        repo.markOrderArrived(orderId)
+        repo.setOrderArchived(orderId, true)
+        assertEquals(true, repo.orders.first().single().archived)
+
+        repo.setOrderArchived(orderId, false)
+        assertEquals(false, repo.orders.first().single().archived)
+    }
+
+    @Test
+    fun `adding a spool to an archived order takes it out of the archive`() = runTest {
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 1))
+        repo.markOrderArrived(orderId)
+        repo.setOrderArchived(orderId, true)
+        repo.addToOrder(orderId, black, 1)
+        val summary = repo.orders.first().single()
+        assertEquals(false, summary.archived)
+        assertEquals(1, summary.pendingCount)
+    }
+
+    @Test
     fun `loading into an occupied slot swaps without a constraint crash`() = runTest {
         val inSlot = repo.addExisting(white, 1, IN_USE, slot = 2).single()
         val next = repo.addExisting(black, 1, SEALED, slot = null).single()

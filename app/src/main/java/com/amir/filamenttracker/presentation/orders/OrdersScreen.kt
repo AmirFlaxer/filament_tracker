@@ -5,30 +5,46 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.data.db.OrderSummary
+import com.amir.filamenttracker.presentation.common.CollectMessages
 import com.amir.filamenttracker.presentation.common.NoInsets
+import com.amir.filamenttracker.presentation.common.SectionHeader
 import com.amir.filamenttracker.presentation.common.formatDate
 
 @Composable
 fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: OrdersViewModel = hiltViewModel()) {
-    val orders by vm.orders.collectAsStateWithLifecycle()
+    val sections by vm.sections.collectAsStateWithLifecycle()
+    val host = remember { SnackbarHostState() }
+    CollectMessages(vm.messages, host)
+    var showArchive by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = NoInsets,
+        snackbarHost = { SnackbarHost(host) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onNewOrder,
@@ -38,15 +54,52 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
         },
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
-            if (orders?.isEmpty() == true) item { Text("אין עדיין הזמנות.", Modifier.padding(16.dp)) }
-            items(orders.orEmpty(), key = { it.id }) { order ->
-                ListItem(
-                    headlineContent = { Text("${order.vendor} · ${order.orderedAt.formatDate()}") },
-                    supportingContent = { Text(order.statusText()) },
-                    modifier = Modifier.clickable { onOrderClick(order.id) },
-                )
+            val s = sections ?: return@LazyColumn
+            if (s.waiting.isEmpty() && s.arrived.isEmpty() && s.archived.isEmpty()) {
+                item { Text("אין עדיין הזמנות.", Modifier.padding(16.dp)) }
+            }
+            orderSection("ממתינות", s.waiting, onOrderClick)
+            orderSection("הגיעו", s.arrived, onOrderClick) { order ->
+                TextButton(onClick = { vm.archive(order.id) }) { Text("לארכיון") }
+            }
+            if (s.archived.isNotEmpty()) {
+                item(key = "archive-toggle") {
+                    ListItem(
+                        headlineContent = { Text("ארכיון (${s.archived.size})") },
+                        trailingContent = {
+                            Icon(
+                                if (showArchive) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (showArchive) "סגור ארכיון" else "פתח ארכיון",
+                            )
+                        },
+                        modifier = Modifier.clickable { showArchive = !showArchive },
+                    )
+                }
+                if (showArchive) {
+                    orderSection(null, s.archived, onOrderClick) { order ->
+                        TextButton(onClick = { vm.restore(order.id) }) { Text("החזר") }
+                    }
+                }
             }
         }
+    }
+}
+
+private fun LazyListScope.orderSection(
+    title: String?,
+    orders: List<OrderSummary>,
+    onOrderClick: (Long) -> Unit,
+    action: (@Composable (OrderSummary) -> Unit)? = null,
+) {
+    if (orders.isEmpty()) return
+    title?.let { item(key = "header-$it") { SectionHeader(it) } }
+    items(orders, key = { it.id }) { order ->
+        ListItem(
+            headlineContent = { Text("${order.vendor} · ${order.orderedAt.formatDate()}") },
+            supportingContent = { Text(order.statusText()) },
+            trailingContent = action?.let { { it(order) } },
+            modifier = Modifier.clickable { onOrderClick(order.id) },
+        )
     }
 }
 

@@ -51,3 +51,10 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_targets_colorId` ON `stock_targets` (`colorId`)")
     }
 }
+
+/** Version 2 to 3: orders can be archived. Every existing order starts outside the archive. */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE orders ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+    }
+}

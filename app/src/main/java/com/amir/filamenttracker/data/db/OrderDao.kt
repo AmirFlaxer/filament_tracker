@@ -13,7 +13,7 @@ interface OrderDao {
     @Query(
         """
         SELECT o.id AS id, o.vendor AS vendor, o.orderedAt AS orderedAt, o.expectedAt AS expectedAt,
-               o.orderNumber AS orderNumber,
+               o.orderNumber AS orderNumber, o.archived AS archived,
                COUNT(s.id) AS spoolCount,
                COALESCE(SUM(CASE WHEN s.status = 'ORDERED' THEN 1 ELSE 0 END), 0) AS pendingCount
         FROM orders o
@@ -34,6 +34,9 @@ interface OrderDao {
 
     @Query("$SPOOL_ROW_SELECT WHERE s.orderId = :orderId ORDER BY m.name, c.name, s.id")
     fun orderSpools(orderId: Long): Flow<List<SpoolRow>>
+
+    @Query("UPDATE orders SET archived = :archived WHERE id = :id")
+    suspend fun setArchived(id: Long, archived: Boolean)
 
     @Query("DELETE FROM orders WHERE id = :id")
     suspend fun deleteOrder(id: Long)
