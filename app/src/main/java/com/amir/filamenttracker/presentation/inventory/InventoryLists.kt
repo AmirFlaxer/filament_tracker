@@ -1,7 +1,10 @@
 package com.amir.filamenttracker.presentation.inventory
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -45,14 +48,18 @@ private fun RowHeadline(row: ListRow) {
 /** Lazy-list key: the section title and color alone repeat across families, so the family is part of it. */
 internal fun listRowKey(section: ListSection, row: ListRow) = "r-${section.title}-${row.family}-${row.colorId}"
 
+/** Each section header sticks to the top until the next one pushes it away, so it needs an opaque background. */
+@OptIn(ExperimentalFoundationApi::class)
 fun LazyListScope.listSections(sections: List<ListSection>, onRowClick: (ListRow) -> Unit) {
     sections.forEach { section ->
-        item(key = "h-${section.title}") {
-            if (!section.isColor) {
-                SectionHeader(section.title)
-            } else {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, bottom = 4.dp)) {
-                    ColorNameChip(section.title, section.colorHex, style = MaterialTheme.typography.titleMedium)
+        stickyHeader(key = "h-${section.title}") {
+            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+                if (!section.isColor) {
+                    SectionHeader(section.title)
+                } else {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 16.dp, bottom = 4.dp)) {
+                        ColorNameChip(section.title, section.colorHex, style = MaterialTheme.typography.titleMedium)
+                    }
                 }
             }
         }
