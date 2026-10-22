@@ -1,5 +1,7 @@
 package com.amir.filamenttracker.presentation.inventory
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -12,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,21 +58,25 @@ private fun HeaderText(text: String, modifier: Modifier) {
 
 internal fun statusRowKey(section: StatusTableSection, row: StatusTableRow) = "sr-${section.family}-${row.colorId}"
 
-fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClick: (StatusTableRow) -> Unit) {
-    item(key = "st-header") {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("שם", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                listOf("בשימוש", "פתוח", "סגור", "בדרך", "סה\"כ").forEach { HeaderText(it, Modifier.width(NumberWidth)) }
-            }
-            HorizontalDivider()
+/** The column names, kept above the list so they stay in place while the rows scroll. */
+@Composable
+fun StatusTableHeader() {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("שם", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            listOf("בשימוש", "פתוח", "סגור", "בדרך", "סה\"כ").forEach { HeaderText(it, Modifier.width(NumberWidth)) }
         }
+        HorizontalDivider()
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClick: (StatusTableRow) -> Unit) {
     sections.forEach { section ->
-        item(key = "sf-${section.family}") {
+        stickyHeader(key = "sf-${section.family}") {
             Text(
                 section.family,
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 16.dp, vertical = 6.dp),
@@ -134,18 +139,36 @@ private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
 private fun RowScope.nameColumn(scrolls: Boolean): Modifier =
     if (scrolls) Modifier.width(NameWidth) else Modifier.weight(1f)
 
-fun LazyListScope.materialTableItems(table: MaterialTable, onCell: (family: String, colorId: Long, cell: MaterialCell) -> Unit) {
-    val scrolls = table.families.size > 3
+private val MaterialTable.scrolls: Boolean get() = families.size > 3
+
+/** The header and the body each get this frame with the same [scroll], so the family names move sideways with their columns. */
+private fun MaterialTable.frame(scroll: ScrollState): Modifier {
+    val outer = if (scrolls) Modifier.horizontalScroll(scroll) else Modifier.fillMaxWidth()
+    // Inside horizontalScroll the width is unbounded, so the scrolling table gets an explicit width for its dividers.
+    val sized = if (scrolls) Modifier.width(NameWidth + FamilyWidth * families.size) else Modifier
+    return outer.padding(horizontal = 16.dp).then(sized)
+}
+
+/** The family names, kept above the list so they stay in place while the colors scroll. */
+@Composable
+fun MaterialTableHeader(table: MaterialTable, scroll: ScrollState) {
+    Column(table.frame(scroll)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("צבע", nameColumn(table.scrolls), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            table.families.forEach { HeaderText(it, Modifier.width(FamilyWidth)) }
+        }
+        HorizontalDivider()
+    }
+}
+
+fun LazyListScope.materialTableItems(
+    table: MaterialTable,
+    scroll: ScrollState,
+    onCell: (family: String, colorId: Long, cell: MaterialCell) -> Unit,
+) {
+    val scrolls = table.scrolls
     item(key = "mt-body") {
-        val outer = if (scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier.fillMaxWidth()
-        // Inside horizontalScroll the width is unbounded, so the scrolling table gets an explicit width for its dividers.
-        val sized = if (scrolls) Modifier.width(NameWidth + FamilyWidth * table.families.size) else Modifier
-        Column(outer.padding(horizontal = 16.dp).then(sized)) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("צבע", nameColumn(scrolls), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                table.families.forEach { HeaderText(it, Modifier.width(FamilyWidth)) }
-            }
-            HorizontalDivider()
+        Column(table.frame(scroll)) {
             table.rows.forEach { row ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     // One line per color: a long name is cut with an ellipsis instead of wrapping; the spools screen shows it in full.

@@ -1,8 +1,10 @@
 package com.amir.filamenttracker.presentation.inventory
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,12 +15,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,7 +31,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,7 +47,9 @@ import com.amir.filamenttracker.domain.model.SpoolStatus
 import com.amir.filamenttracker.presentation.common.ColorNameChip
 import com.amir.filamenttracker.presentation.common.NoInsets
 import com.amir.filamenttracker.presentation.common.title
+import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
     onColorClick: (family: String, colorId: Long) -> Unit,
@@ -52,6 +63,11 @@ fun InventoryScreen(
     // Grouping is computed once per data or view change, not on every recomposition.
     val content = remember(spools, state.alerts, view) { view?.let { buildContent(it, spools, state.alerts) } }
 
+    // The alerts card folds away as the list scrolls up and opens again once the list is back at its top.
+    val alertsCollapse = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    // Shared by the material table's header and body, so the family names scroll sideways with their columns.
+    val tableScroll = remember(view) { ScrollState(0) }
+
     Scaffold(
         contentWindowInsets = NoInsets,
         floatingActionButton = {
@@ -62,25 +78,49 @@ fun InventoryScreen(
             )
         },
     ) { padding ->
-        LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
-            if (view != null && content != null) {
-                item(key = "alerts") { AlertsCard(state.alerts) }
-                item(key = "view-switcher") { ViewSwitcher(view, vm::select) }
-                if (content.isEmpty(spools)) {
-                    item {
-                        Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
-                    }
-                } else when (content) {
-                    is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.family, it.colorId) }
-                    is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.family, it.colorId) }
-                    is ViewContent.MaterialTableContent -> materialTableItems(content.table) { family, colorId, cell ->
-                        // A missing-only cell has no spools to open.
-                        if (!cell.missing) onColorClick(family, colorId)
+        if (view != null && content != null) {
+            // Everything above the LazyColumn stays put while it scrolls; only the alerts card above it folds away.
+            Column(Modifier.padding(padding).fillMaxSize().nestedScroll(alertsCollapse.nestedScrollConnection)) {
+                Collapsing(alertsCollapse.state) { AlertsCard(state.alerts) }
+                ViewSwitcher(view, vm::select)
+                val empty = content.isEmpty(spools)
+                if (!empty) when (content) {
+                    is ViewContent.Lists -> Unit
+                    is ViewContent.StatusTable -> StatusTableHeader()
+                    is ViewContent.MaterialTableContent -> MaterialTableHeader(content.table, tableScroll)
+                }
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 88.dp)) {
+                    if (empty) {
+                        item {
+                            Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
+                        }
+                    } else when (content) {
+                        is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.family, it.colorId) }
+                        is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.family, it.colorId) }
+                        is ViewContent.MaterialTableContent -> materialTableItems(content.table, tableScroll) { family, colorId, cell ->
+                            // A missing-only cell has no spools to open.
+                            if (!cell.missing) onColorClick(family, colorId)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** Shows [content] shortened from the top by the collapsed part of [state], the way a collapsing top app bar does. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Collapsing(state: TopAppBarState, content: @Composable () -> Unit) {
+    Box(
+        Modifier.clipToBounds().layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+            val limit = -placeable.height.toFloat()
+            if (state.heightOffsetLimit != limit) state.heightOffsetLimit = limit
+            val offset = state.heightOffset.coerceAtLeast(limit).roundToInt()
+            layout(placeable.width, placeable.height + offset) { placeable.place(0, offset) }
+        },
+    ) { content() }
 }
 
 private sealed interface ViewContent {
