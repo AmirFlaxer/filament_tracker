@@ -54,7 +54,9 @@ private fun HeaderText(text: String, modifier: Modifier) {
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
-        maxLines = 1,
+        // Two lines, so a long stock line ("PLA Silk Dual Color") is not cut into another one ("PLA Silk").
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 
