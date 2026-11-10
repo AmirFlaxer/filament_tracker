@@ -2,9 +2,13 @@ package com.amir.filamenttracker.domain
 
 import kotlin.math.pow
 
-/** What to paint for a color: a real hue, the see-through marker, the rainbow marker, or nothing known. */
+/**
+ * What to paint for a color: a real hue, the hues of a combined color, the see-through marker, the
+ * rainbow marker, or nothing known.
+ */
 sealed interface ColorSwatch {
     data class Hex(val hex: String) : ColorSwatch
+    data class Parts(val hexes: List<String>) : ColorSwatch
     data object Clear : ColorSwatch
     data object Multi : ColorSwatch
     data object None : ColorSwatch
@@ -31,9 +35,40 @@ private val paletteByName: Map<String, String> = mapOf(
 private val clearNames = setOf("שקוף", "clear", "transparent")
 private val multiNames = setOf("מולטיקולור", "multicolor", "rainbow")
 
-/** A stored hex that is valid always wins; otherwise the name decides. */
+/** A combined color (a dual or tri color spool) is named by its parts: "Red / Gold". */
+fun colorParts(name: String): List<String> = name.split('/').map { it.trim() }.filter { it.isNotEmpty() }
+
+fun composeColorName(parts: List<String>): String = parts.joinToString(" / ")
+
+/**
+ * Adds [part] to a combined color name, or removes it when it is there (ignoring case). Parts typed
+ * by hand stay first; the chosen ones follow the order of [known], so the same colors always give the
+ * same name ("Gold / Red" and "Red / Gold" never become two colors).
+ */
+fun toggleColorPart(current: String, part: String, known: List<String>): String {
+    val parts = colorParts(current)
+    val present = parts.any { it.equals(part, ignoreCase = true) }
+    val chosen = if (present) parts.filterNot { it.equals(part, ignoreCase = true) } else parts + part
+    val (listed, typed) = chosen.partition { p -> known.any { it.equals(p, ignoreCase = true) } }
+    return composeColorName(typed + listed.sortedBy { p -> known.indexOfFirst { it.equals(p, ignoreCase = true) } })
+}
+
+/**
+ * A stored hex that is valid always wins; otherwise the name decides. A combined name gets the hue
+ * of each part, or the rainbow marker when a part has no known hue.
+ */
 fun resolveSwatch(name: String, storedHex: String?): ColorSwatch {
-    storedHex?.trim()?.let { hexPattern.matchEntire(it) }?.let { return ColorSwatch.Hex("#" + it.groupValues[1].uppercase()) }
+    val stored = storedHex?.trim()?.split(Regex("\\s+"))?.mapNotNull { hexPattern.matchEntire(it) }
+        ?.map { "#" + it.groupValues[1].uppercase() }.orEmpty()
+    when {
+        stored.size == 1 -> return ColorSwatch.Hex(stored.single())
+        stored.size > 1 -> return ColorSwatch.Parts(stored)
+    }
+    val parts = colorParts(name)
+    if (parts.size > 1) {
+        val hexes = parts.map { (resolveSwatch(it, null) as? ColorSwatch.Hex)?.hex }
+        return if (hexes.all { it != null }) ColorSwatch.Parts(hexes.filterNotNull()) else ColorSwatch.Multi
+    }
     val key = name.trim().lowercase()
     paletteByName[key]?.let { return ColorSwatch.Hex(it) }
     return when (key) {
@@ -43,8 +78,12 @@ fun resolveSwatch(name: String, storedHex: String?): ColorSwatch {
     }
 }
 
-/** The hex to paint a plain dot with, or null for clear, multicolor and unknown. */
-fun resolveColorHex(name: String, storedHex: String?): String? = (resolveSwatch(name, storedHex) as? ColorSwatch.Hex)?.hex
+/** The hex to paint a plain dot with (the first part of a combined color), or null for clear, multicolor and unknown. */
+fun resolveColorHex(name: String, storedHex: String?): String? = when (val swatch = resolveSwatch(name, storedHex)) {
+    is ColorSwatch.Hex -> swatch.hex
+    is ColorSwatch.Parts -> swatch.hexes.first()
+    else -> null
+}
 
 enum class ChipBackground(val hex: String) {
     LIGHT("#EDE7DA"),

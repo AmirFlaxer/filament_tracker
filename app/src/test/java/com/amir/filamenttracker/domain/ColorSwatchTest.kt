@@ -68,4 +68,30 @@ class ColorSwatchTest {
         listOf("#000000", "#8E24AA").forEach { assertEquals(it, true, needsHalo(it, dark)) }
         listOf("#FFFFFF", "#FBC02D").forEach { assertEquals(it, false, needsHalo(it, dark)) }
     }
+
+    @Test fun `a combined name gets the hue of each part`() =
+        assertEquals(ColorSwatch.Parts(listOf("#D32F2F", "#D4AF37")), resolveSwatch("Red / Gold", null))
+
+    @Test fun `stored hues of a combined color win over the names`() =
+        assertEquals(ColorSwatch.Parts(listOf("#111111", "#222222")), resolveSwatch("Teal / Sand", "#111111 #222222"))
+
+    @Test fun `a combined name with an unknown part is drawn as multicolor`() =
+        assertEquals(ColorSwatch.Multi, resolveSwatch("Red / Sand", null))
+
+    @Test fun `a dot for a combined color takes the first hue`() =
+        assertEquals("#D32F2F", resolveColorHex("Red / Gold", null))
+
+    @Test fun `color parts split and compose`() {
+        assertEquals(listOf("Red", "Gold"), colorParts(" Red/ Gold "))
+        assertEquals("Red / Gold", composeColorName(listOf("Red", "Gold")))
+        assertEquals(listOf("שחור"), colorParts("שחור"))
+    }
+
+    @Test fun `toggling color parts keeps the list order and removes again`() {
+        val known = listOf("Black", "Gold", "Red")
+        val two = toggleColorPart(toggleColorPart("", "Red", known), "Gold", known)
+        assertEquals("Gold / Red", two)
+        assertEquals("Red", toggleColorPart(two, "gold", known))
+        assertEquals("Copper / Black", toggleColorPart("Copper", "Black", known))
+    }
 }

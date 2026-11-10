@@ -32,13 +32,16 @@ data class StatusTableRow(
     val open: Int,
     val sealed: Int,
     val ordered: Int,
+    /** Missing or running low against its target; null otherwise. */
+    val alert: AlertKind? = null,
 ) {
     val total: Int get() = inUse + open + sealed + ordered
 }
 
 data class StatusTableSection(val family: String, val rows: List<StatusTableRow>)
 
-data class MaterialCell(val counts: Map<SpoolStatus, Int>, val missing: Boolean) {
+/** [missing] marks an empty cell kept for its target; [alert] is missing or running low, else null. */
+data class MaterialCell(val counts: Map<SpoolStatus, Int>, val missing: Boolean, val alert: AlertKind? = null) {
     val total: Int get() = counts.values.sum()
 }
 
@@ -157,11 +160,24 @@ fun byStatus(spools: List<SpoolRow>): List<ListSection> {
     }
 }
 
-fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
+/** The alerts the tables mark: missing and running low. "On the way" is already in the counts. */
+private fun tableAlerts(alerts: List<AlertRow>) =
+    alerts.filter { it.kind == AlertKind.MISSING || it.kind == AlertKind.RUNNING_LOW }
+
+private val AlertRow.lineKey: LineKey get() = lineKey(family, finish)
+
+/**
+ * Sections per family, rows per stock line and color. A target with no spools at all still gets a
+ * row, so what is missing shows in the table too.
+ */
+fun statusTable(spools: List<SpoolRow>, alerts: List<AlertRow> = emptyList()): List<StatusTableSection> {
     val rows = live(spools)
-    val names = Spellings(rows)
-    return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
-        val tableRows = lineColorRows(group, names).map { row ->
+    val marked = tableAlerts(alerts)
+    val names = Spellings(rows, marked.map { StockLine(it.family, it.finish) })
+    val alertOf = marked.associateBy { it.lineKey to it.colorId }
+    val families = (rows.map { familyKey(it.materialFamily) } + marked.map { familyKey(it.family) }).distinct().sorted()
+    return families.map { key ->
+        val fromSpools = lineColorRows(rows.filter { familyKey(it.materialFamily) == key }, names).map { row ->
             StatusTableRow(
                 family = row.family,
                 colorId = row.colorId,
@@ -172,15 +188,24 @@ fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
                 open = row.counts[SpoolStatus.OPEN_STORED] ?: 0,
                 sealed = row.counts[SpoolStatus.SEALED] ?: 0,
                 ordered = row.counts[SpoolStatus.ORDERED] ?: 0,
+                alert = alertOf[lineKey(row.family, row.finish) to row.colorId]?.kind,
             )
         }
-        StatusTableSection(names.family(key), tableRows)
+        val present = fromSpools.map { lineKey(it.family, it.finish) to it.colorId }.toSet()
+        val missingRows = marked
+            .filter { familyKey(it.family) == key && it.kind == AlertKind.MISSING && (it.lineKey to it.colorId) !in present }
+            .map {
+                val line = names.line(it.lineKey)
+                StatusTableRow(line.family, it.colorId, it.colorName, it.colorHex, line.finish, 0, 0, 0, 0, AlertKind.MISSING)
+            }
+        StatusTableSection(names.family(key), (fromSpools + missingRows).sortedWith(compareBy({ it.label }, { it.finish })))
     }
 }
 
 fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable {
     val rows = live(spools)
     val missing = alerts.filter { it.kind == AlertKind.MISSING }
+    val marked = tableAlerts(alerts)
     val names = Spellings(rows, missing.map { StockLine(it.family, it.finish) })
     val lineKeys = (rows.map { it.lineKey } + missing.map { lineKey(it.family, it.finish) })
         .distinct().sortedWith(compareBy({ it.first }, { it.second }))
@@ -194,12 +219,14 @@ fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable
         val cells = lineKeys.map { line ->
             val inCell = rows.filter { it.colorId == colorId && it.lineKey == line }
             val missingHere = missing.filter { it.colorId == colorId && lineKey(it.family, it.finish) == line }
+            val alert = marked.firstOrNull { it.colorId == colorId && it.lineKey == line }?.kind
             if (inCell.isEmpty() && missingHere.isEmpty()) {
                 null
             } else {
                 MaterialCell(
                     counts = inCell.countsByStatus(),
                     missing = inCell.isEmpty() && missingHere.isNotEmpty(),
+                    alert = alert,
                 )
             }
         }

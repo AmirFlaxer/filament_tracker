@@ -24,7 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.amir.filamenttracker.domain.AlertKind
 import com.amir.filamenttracker.domain.model.SpoolStatus
+import com.amir.filamenttracker.presentation.common.title
 import com.amir.filamenttracker.presentation.common.ColorNameChip
 import com.amir.filamenttracker.presentation.common.countLabel
 
@@ -87,11 +89,14 @@ fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClic
         }
         items(section.rows, key = { statusRowKey(section, it) }) { row ->
             Row(
-                Modifier.fillMaxWidth().clickable { onRowClick(row) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                // A missing row has no spools to open.
+                Modifier.fillMaxWidth().clickable(enabled = row.total > 0) { onRowClick(row) }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
                     ColorWithFinish(row.label, row.colorHex, row.finish)
+                    row.alert?.let { Text(it.title(), style = MaterialTheme.typography.labelSmall, color = it.color()) }
                 }
                 NumberCell(row.inUse)
                 NumberCell(row.open)
@@ -118,7 +123,7 @@ private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
             cell == null -> Text("-", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
             cell.missing -> {
                 Text("0", fontWeight = FontWeight.Bold)
-                Text("חסר", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                Text(AlertKind.MISSING.title(), style = MaterialTheme.typography.labelSmall, color = AlertKind.MISSING.color())
             }
             else -> {
                 Text("${cell.total}", fontWeight = FontWeight.Bold)
@@ -129,6 +134,9 @@ private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
+                }
+                cell.alert?.let {
+                    Text(it.title(), style = MaterialTheme.typography.labelSmall, color = it.color(), textAlign = TextAlign.Center)
                 }
             }
         }

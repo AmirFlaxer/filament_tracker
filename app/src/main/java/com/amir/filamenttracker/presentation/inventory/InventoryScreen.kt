@@ -133,6 +133,7 @@ private sealed interface ViewContent {
 /** The empty text shows only when this view has nothing to show; the material table can still hold missing rows. */
 private fun ViewContent.isEmpty(spools: List<SpoolRow>): Boolean = when (this) {
     is ViewContent.MaterialTableContent -> table.rows.isEmpty()
+    is ViewContent.StatusTable -> sections.isEmpty()
     else -> spools.none { it.status != SpoolStatus.FINISHED }
 }
 
@@ -140,7 +141,7 @@ private fun buildContent(view: InventoryView, spools: List<SpoolRow>, alerts: Li
     InventoryView.BY_MATERIAL -> ViewContent.Lists(byMaterial(spools))
     InventoryView.BY_COLOR -> ViewContent.Lists(byColor(spools))
     InventoryView.BY_STATUS -> ViewContent.Lists(byStatus(spools))
-    InventoryView.TABLE_STATUS -> ViewContent.StatusTable(statusTable(spools))
+    InventoryView.TABLE_STATUS -> ViewContent.StatusTable(statusTable(spools, alerts))
     InventoryView.TABLE_MATERIAL -> ViewContent.MaterialTableContent(materialTable(spools, alerts))
 }
 
@@ -189,7 +190,7 @@ private fun AlertsCard(alerts: List<AlertRow>) {
 }
 
 @Composable
-private fun AlertKind.color(): Color = when (this) {
+internal fun AlertKind.color(): Color = when (this) {
     AlertKind.MISSING -> MaterialTheme.colorScheme.error
     AlertKind.RUNNING_LOW -> MaterialTheme.colorScheme.tertiary
     AlertKind.ON_THE_WAY -> MaterialTheme.colorScheme.primary

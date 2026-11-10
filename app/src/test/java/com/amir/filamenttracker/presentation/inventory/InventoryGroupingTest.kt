@@ -30,8 +30,8 @@ class InventoryGroupingTest {
         colorId = colorId, colorName = color, colorHex = null,
     )
 
-    private fun missing(family: String, color: String, colorId: Long, finish: String = "") = AlertRow(
-        kind = AlertKind.MISSING, family = family, finish = finish,
+    private fun missing(family: String, color: String, colorId: Long, finish: String = "", kind: AlertKind = AlertKind.MISSING) = AlertRow(
+        kind = kind, family = family, finish = finish,
         colorId = colorId, colorName = color, colorHex = null,
         count = com.amir.filamenttracker.domain.StockCount(0, 0, 0), minSealed = 1,
     )
@@ -121,6 +121,33 @@ class InventoryGroupingTest {
         assertEquals(listOf("PLA", "PLA Matte", "PLA Silk"), table.lines.map { it.name })
         assertEquals(listOf(2, 2, null), table.rows.single { it.colorId == 11L }.cells.map { it?.total })
         assertTrue(table.rows.single { it.colorId == 10L }.cells[2]!!.missing)
+    }
+
+    @Test
+    fun `status table adds a row for a missing target and marks a running-low one`() {
+        val alerts = listOf(
+            missing("PLA", "שחור", 11),
+            missing("PLA", "לבן", 10, kind = AlertKind.RUNNING_LOW),
+            missing("ABS", "אדום", 20),
+            missing("PETG", "לבן", 10, kind = AlertKind.ON_THE_WAY),
+        )
+        val sections = statusTable(sample, alerts)
+        assertEquals(listOf("ABS", "PETG", "PLA"), sections.map { it.family })
+        val abs = sections.first().rows.single()
+        assertEquals(AlertKind.MISSING, abs.alert)
+        assertEquals(0, abs.total)
+        val pla = sections.last().rows
+        assertEquals(listOf("לבן" to AlertKind.RUNNING_LOW, "שחור" to AlertKind.MISSING), pla.map { it.label to it.alert })
+        assertNull(sections[1].rows.single { it.label == "לבן" }.alert)
+    }
+
+    @Test
+    fun `material table marks a running-low cell`() {
+        val table = materialTable(sample, listOf(missing("PLA", "לבן", 10, kind = AlertKind.RUNNING_LOW)))
+        val white = table.rows.single { it.colorName == "לבן" }
+        assertEquals(AlertKind.RUNNING_LOW, white.cells[1]!!.alert)
+        assertNull(white.cells[0]!!.alert)
+        assertFalse(white.cells[1]!!.missing)
     }
 
     @Test

@@ -49,6 +49,9 @@ val VARIANT_TERMS: List<String> = namesOf(TermKind.VARIANT)
 /** Finish chips that are always shown. */
 val COMMON_FINISH_TERMS: List<String> = namesOf(TermKind.COMMON_FINISH)
 
+/** Finishes of a spool with more than one color: the color is then picked as several parts. */
+val MULTI_COLOR_TERMS: List<String> = listOf("Dual Color", "Tri Color", "Gradient")
+
 /** Finish chips behind "more". */
 val MORE_FINISH_TERMS: List<String> = namesOf(TermKind.MORE_FINISH)
 

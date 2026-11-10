@@ -33,6 +33,9 @@ import com.amir.filamenttracker.data.db.title
 import com.amir.filamenttracker.domain.COMMON_FINISH_TERMS
 import com.amir.filamenttracker.domain.ColorHex
 import com.amir.filamenttracker.domain.MORE_FINISH_TERMS
+import com.amir.filamenttracker.domain.MULTI_COLOR_TERMS
+import com.amir.filamenttracker.domain.colorParts
+import com.amir.filamenttracker.domain.toggleColorPart
 import com.amir.filamenttracker.domain.VARIANT_TERMS
 import com.amir.filamenttracker.domain.hasTerm
 import com.amir.filamenttracker.domain.isKnownTermsOnly
@@ -79,6 +82,17 @@ fun NewProductDialog(
     val freeVariants = inFamily.map { it.variant }.filter { it.isNotBlank() && !isKnownTermsOnly(it) }.distinctBy { it.uppercase() }
     val freeFinishes = inFamily.map { it.finish }.filter { it.isNotBlank() && !isKnownTermsOnly(it) }.distinctBy { it.uppercase() }
     val finishChips = COMMON_FINISH_TERMS + MORE_FINISH_TERMS.filter { moreFinishes || hasTerm(finish, it) }
+    // A dual or tri color spool is one combined color: each chip adds or removes a part.
+    val multiColor = MULTI_COLOR_TERMS.any { hasTerm(finish, it) }
+    val colorChips = if (multiColor) colors.filter { colorParts(it.name).size == 1 } else colors
+    fun toggleColor(c: ColorEntity) {
+        color = toggleColorPart(color, c.name, colorChips.map { it.name })
+        // The hue of each part, when every part has one; otherwise the name decides.
+        val hexes = colorParts(color).map { part ->
+            colorChips.firstOrNull { it.name.equals(part, ignoreCase = true) }.let { resolveColorHex(part, it?.hex) }
+        }
+        hex = if (hexes.size > 1 && hexes.all { it != null }) hexes.joinToString(" ") else ""
+    }
 
     val weightValue = weight.toIntOrNull() ?: 0
     val hexValid = runCatching { ColorHex.normalize(hex) }.isSuccess
@@ -134,12 +148,23 @@ fun NewProductDialog(
                     }
                     TextButton(onClick = { moreFinishes = !moreFinishes }) { Text(if (moreFinishes) "פחות גימורים" else "עוד גימורים") }
                 }
-                OutlinedTextField(color, { color = it }, label = { Text("צבע") }, singleLine = true)
+                OutlinedTextField(
+                    color, { color = it },
+                    label = { Text(if (multiColor) "צבעים (סמן את כל הצבעים בסליל)" else "צבע") },
+                    singleLine = true,
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    colors.forEach { c ->
+                    colorChips.forEach { c ->
                         FilterChip(
-                            selected = color == c.name,
-                            onClick = { color = c.name; if (hex.isBlank()) hex = c.hex ?: "" },
+                            selected = if (multiColor) colorParts(color).any { it.equals(c.name, ignoreCase = true) } else color == c.name,
+                            onClick = {
+                                if (multiColor) {
+                                    toggleColor(c)
+                                } else {
+                                    color = c.name
+                                    if (hex.isBlank()) hex = c.hex ?: ""
+                                }
+                            },
                             label = { Text(c.name) },
                             leadingIcon = { ColorDot(resolveColorHex(c.name, c.hex), size = 14.dp) },
                         )
