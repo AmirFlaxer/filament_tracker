@@ -11,4 +11,9 @@ class ColorHexTest {
     @Test(expected = IllegalArgumentException::class) fun `color word is rejected`() { ColorHex.normalize("red") }
     @Test(expected = IllegalArgumentException::class) fun `five digits are rejected`() { ColorHex.normalize("#12345") }
     @Test(expected = IllegalArgumentException::class) fun `seven digits are rejected`() { ColorHex.normalize("#1234567") }
+    @Test fun `a combined color keeps one hue per part`() {
+        assertEquals("#D32F2F #D4AF37", ColorHex.normalize("#d32f2f, d4af37"))
+        assertEquals("#D32F2F #D4AF37 #000000", ColorHex.normalize("#D32F2F / #D4AF37 / #000000"))
+    }
+    @Test(expected = IllegalArgumentException::class) fun `a bad part rejects the whole list`() { ColorHex.normalize("#D32F2F red") }
 }

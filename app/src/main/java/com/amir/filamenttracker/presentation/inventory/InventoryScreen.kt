@@ -41,6 +41,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.data.AlertRow
 import com.amir.filamenttracker.domain.AlertKind
+import com.amir.filamenttracker.domain.lineName
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.domain.model.InventoryView
 import com.amir.filamenttracker.domain.model.SpoolStatus
@@ -52,7 +53,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
-    onColorClick: (family: String, colorId: Long) -> Unit,
+    onColorClick: (family: String, finish: String, colorId: Long) -> Unit,
     onAddExisting: () -> Unit,
     vm: InventoryViewModel = hiltViewModel(),
 ) {
@@ -65,7 +66,7 @@ fun InventoryScreen(
 
     // The alerts card folds away as the list scrolls up and opens again once the list is back at its top.
     val alertsCollapse = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    // Shared by the material table's header and body, so the family names scroll sideways with their columns.
+    // Shared by the material table's header and body, so the stock line names scroll sideways with their columns.
     val tableScroll = remember(view) { ScrollState(0) }
 
     Scaffold(
@@ -95,11 +96,11 @@ fun InventoryScreen(
                             Text("אין עדיין סלילים. אפשר להתחיל בהוספת המלאי הקיים, בכפתור שלמטה.", Modifier.padding(16.dp))
                         }
                     } else when (content) {
-                        is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.family, it.colorId) }
-                        is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.family, it.colorId) }
-                        is ViewContent.MaterialTableContent -> materialTableItems(content.table, tableScroll) { family, colorId, cell ->
+                        is ViewContent.Lists -> listSections(content.sections) { onColorClick(it.family, it.finish, it.colorId) }
+                        is ViewContent.StatusTable -> statusTableItems(content.sections) { onColorClick(it.family, it.finish, it.colorId) }
+                        is ViewContent.MaterialTableContent -> materialTableItems(content.table, tableScroll) { line, colorId, cell ->
                             // A missing-only cell has no spools to open.
-                            if (!cell.missing) onColorClick(family, colorId)
+                            if (!cell.missing) onColorClick(line.family, line.finish, colorId)
                         }
                     }
                 }
@@ -132,6 +133,7 @@ private sealed interface ViewContent {
 /** The empty text shows only when this view has nothing to show; the material table can still hold missing rows. */
 private fun ViewContent.isEmpty(spools: List<SpoolRow>): Boolean = when (this) {
     is ViewContent.MaterialTableContent -> table.rows.isEmpty()
+    is ViewContent.StatusTable -> sections.isEmpty()
     else -> spools.none { it.status != SpoolStatus.FINISHED }
 }
 
@@ -139,7 +141,7 @@ private fun buildContent(view: InventoryView, spools: List<SpoolRow>, alerts: Li
     InventoryView.BY_MATERIAL -> ViewContent.Lists(byMaterial(spools))
     InventoryView.BY_COLOR -> ViewContent.Lists(byColor(spools))
     InventoryView.BY_STATUS -> ViewContent.Lists(byStatus(spools))
-    InventoryView.TABLE_STATUS -> ViewContent.StatusTable(statusTable(spools))
+    InventoryView.TABLE_STATUS -> ViewContent.StatusTable(statusTable(spools, alerts))
     InventoryView.TABLE_MATERIAL -> ViewContent.MaterialTableContent(materialTable(spools, alerts))
 }
 
@@ -176,7 +178,7 @@ private fun AlertsCard(alerts: List<AlertRow>) {
                         Text(kind.title(), style = MaterialTheme.typography.titleSmall, color = kind.color())
                         group.forEach { alert ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(alert.family)
+                                Text(lineName(alert.family, alert.finish))
                                 ColorNameChip(alert.colorName, alert.colorHex, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
@@ -188,7 +190,7 @@ private fun AlertsCard(alerts: List<AlertRow>) {
 }
 
 @Composable
-private fun AlertKind.color(): Color = when (this) {
+internal fun AlertKind.color(): Color = when (this) {
     AlertKind.MISSING -> MaterialTheme.colorScheme.error
     AlertKind.RUNNING_LOW -> MaterialTheme.colorScheme.tertiary
     AlertKind.ON_THE_WAY -> MaterialTheme.colorScheme.primary

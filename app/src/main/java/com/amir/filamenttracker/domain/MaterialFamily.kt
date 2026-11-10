@@ -27,11 +27,16 @@ fun materialKind(name: String): MaterialKind {
     return MaterialKind(family, variant)
 }
 
-/** Display name: empty variant is the family, a variant without letters or digits is attached ("PLA+"), else spaced. */
-fun composeMaterialName(family: String, variant: String): String = when {
-    variant.isEmpty() -> family
-    variant.none { it.isLetterOrDigit() } -> family + variant
-    else -> "$family $variant"
+/**
+ * Display name: the family, then the sub-type, then the finish. A leading word without letters or
+ * digits is attached ("PLA+", "PLA+ Matte"), the rest are spaced.
+ */
+fun composeMaterialName(family: String, variant: String, finish: String = ""): String {
+    val words = "$variant $finish".split(' ').filter { it.isNotEmpty() }
+    if (words.isEmpty()) return family
+    val first = words.first()
+    val attached = first.none { it.isLetterOrDigit() }
+    return (if (attached) family + first else "$family $first") + words.drop(1).joinToString("") { " $it" }
 }
 
 /** Comparison key for grouping by family, ignoring case. */

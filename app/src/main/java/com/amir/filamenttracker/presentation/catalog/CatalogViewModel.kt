@@ -14,20 +14,20 @@ class CatalogViewModel @Inject constructor(private val catalog: CatalogRepositor
     val brands = catalog.brands.asState(emptyList())
     val products = catalog.products.asState(emptyList())
 
-    fun addMaterial(family: String, variant: String) = launchAction {
-        catalog.addMaterial(family, variant)
+    fun addMaterial(family: String, variant: String, finish: String) = launchAction {
+        catalog.addMaterial(family, variant, finish)
         "החומר נשמר"
     }
 
     fun addColor(name: String, hex: String) = launchAction { catalog.addColor(name, hex); "הצבע נשמר" }
 
     fun createProduct(input: NewProductInput) = launchAction {
-        catalog.createProduct(input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note)
+        catalog.createProduct(input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note, input.materialFinish)
         "המוצר נשמר"
     }
 
-    fun updateMaterial(id: Long, family: String, variant: String) = launchAction {
-        catalog.updateMaterial(id, family, variant)
+    fun updateMaterial(id: Long, family: String, variant: String, finish: String) = launchAction {
+        catalog.updateMaterial(id, family, variant, finish)
         null
     }
 

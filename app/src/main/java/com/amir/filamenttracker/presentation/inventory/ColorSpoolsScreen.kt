@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.presentation.common.BackTopBar
+import com.amir.filamenttracker.domain.lineName
 import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.statusText
@@ -21,7 +22,7 @@ import com.amir.filamenttracker.presentation.common.statusText
 @Composable
 fun ColorSpoolsScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: ColorSpoolsViewModel = hiltViewModel()) {
     val spools by vm.spools.collectAsStateWithLifecycle()
-    val title = spools.firstOrNull()?.let { "${it.materialFamily} ${it.colorName}" } ?: "סלילים"
+    val title = spools.firstOrNull()?.let { "${lineName(it.materialFamily, it.materialFinish)} ${it.colorName}" } ?: "סלילים"
 
     Scaffold(topBar = { BackTopBar(title, onBack) }) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize()) {

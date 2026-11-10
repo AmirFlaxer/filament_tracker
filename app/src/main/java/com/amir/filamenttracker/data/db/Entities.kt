@@ -14,6 +14,8 @@ data class MaterialEntity(
     val name: String,
     val family: String,
     val variant: String = "",
+    /** How the print looks ("Matte", "Silk"); empty is the plain finish. Part of the stock line, unlike [variant]. */
+    val finish: String = "",
     val archived: Boolean = false,
 )
 
@@ -97,7 +99,7 @@ data class SpoolEventEntity(
 
 @Entity(
     tableName = "stock_targets",
-    primaryKeys = ["family", "colorId"],
+    primaryKeys = ["family", "finish", "colorId"],
     foreignKeys = [
         ForeignKey(
             entity = ColorEntity::class, parentColumns = ["id"], childColumns = ["colorId"],
@@ -107,7 +109,7 @@ data class SpoolEventEntity(
     indices = [Index("colorId")],
 )
 /**
- * A target is a main material (family) plus a color. [family] keeps the spelling of the first
- * material that used it; queries compare it with COLLATE NOCASE.
+ * A target is a stock line (main material and finish) plus a color. [family] keeps the spelling of
+ * the first material that used it; queries compare family and finish with COLLATE NOCASE.
  */
-data class StockTargetEntity(val family: String, val colorId: Long, val minSealed: Int = 1)
+data class StockTargetEntity(val family: String, val colorId: Long, val minSealed: Int = 1, val finish: String = "")

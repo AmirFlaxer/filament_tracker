@@ -108,6 +108,15 @@ fun ColorNameChip(
                 color = Color.White,
             )
         }
+        is ColorSwatch.Parts -> {
+            // A halo only when a part would melt into the screen; the first such part picks its shade.
+            val hard = swatch.hexes.firstOrNull { needsHalo(it, surfaceHex) }
+            HaloText(
+                name, modifier, textStyle,
+                halo = hard?.let { chipBackgroundFor(it).color() },
+                brush = Brush.horizontalGradient(swatch.hexes.map { parseHexOrNull(it) ?: Color.Gray }),
+            )
+        }
         ColorSwatch.Multi -> HaloText(
             name, modifier, textStyle,
             halo = if (lightSurface) ChipBackground.DARK.color() else null,
