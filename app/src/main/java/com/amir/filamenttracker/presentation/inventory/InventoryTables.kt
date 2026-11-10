@@ -151,23 +151,38 @@ private fun RowScope.nameColumn(scrolls: Boolean): Modifier =
 
 private val MaterialTable.scrolls: Boolean get() = lines.size > 3
 
-/** The header and the body each get this frame with the same [scroll], so the stock line names move sideways with their columns. */
-private fun MaterialTable.frame(scroll: ScrollState): Modifier {
-    val outer = if (scrolls) Modifier.horizontalScroll(scroll) else Modifier.fillMaxWidth()
-    // Inside horizontalScroll the width is unbounded, so the scrolling table gets an explicit width for its dividers.
-    val sized = if (scrolls) Modifier.width(NameWidth + FamilyWidth * lines.size) else Modifier
-    return outer.padding(horizontal = 16.dp).then(sized)
+/**
+ * One table row: the name column stays in place, and only the stock line columns scroll sideways.
+ * The header and every row share [scroll], so they all move together.
+ */
+@Composable
+private fun TableRow(
+    table: MaterialTable,
+    scroll: ScrollState,
+    modifier: Modifier,
+    name: @Composable RowScope.(Modifier) -> Unit,
+    columns: @Composable RowScope.() -> Unit,
+) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        name(nameColumn(table.scrolls))
+        if (table.scrolls) {
+            Row(Modifier.weight(1f).horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) { columns() }
+        } else {
+            columns()
+        }
+    }
 }
 
 /** The stock line names, kept above the list so they stay in place while the colors scroll. */
 @Composable
 fun MaterialTableHeader(table: MaterialTable, scroll: ScrollState) {
-    Column(table.frame(scroll)) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("צבע", nameColumn(table.scrolls), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            table.lines.forEach { HeaderText(it.name, Modifier.width(FamilyWidth)) }
-        }
-        HorizontalDivider()
+    Column {
+        TableRow(
+            table, scroll, Modifier.padding(vertical = 8.dp),
+            name = { Text("צבע", it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            columns = { table.lines.forEach { HeaderText(it.name, Modifier.width(FamilyWidth)) } },
+        )
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
     }
 }
 
@@ -176,18 +191,22 @@ fun LazyListScope.materialTableItems(
     scroll: ScrollState,
     onCell: (line: StockLine, colorId: Long, cell: MaterialCell) -> Unit,
 ) {
-    val scrolls = table.scrolls
     item(key = "mt-body") {
-        Column(table.frame(scroll)) {
+        Column {
             table.rows.forEach { row ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TableRow(
+                    table, scroll, Modifier.padding(vertical = 4.dp),
                     // One line per color: a long name is cut with an ellipsis instead of wrapping; the spools screen shows it in full.
-                    Row(nameColumn(scrolls), verticalAlignment = Alignment.CenterVertically) {
-                        ColorNameChip(row.colorName, row.colorHex, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    row.cells.forEachIndexed { i, cell -> MaterialTableCell(cell) { cell?.let { onCell(table.lines[i], row.colorId, it) } } }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    name = {
+                        Row(it, verticalAlignment = Alignment.CenterVertically) {
+                            ColorNameChip(row.colorName, row.colorHex, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    },
+                    columns = {
+                        row.cells.forEachIndexed { i, cell -> MaterialTableCell(cell) { cell?.let { onCell(table.lines[i], row.colorId, it) } } }
+                    },
+                )
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
     }
