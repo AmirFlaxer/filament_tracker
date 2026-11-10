@@ -11,13 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.amir.filamenttracker.domain.model.SpoolStatus
+import com.amir.filamenttracker.domain.lineName
 import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.ColorNameChip
@@ -31,22 +34,34 @@ private fun ListRow.supportingText(): String {
     return if (slots.isEmpty()) text else "$text · חריץ ${slots.joinToString(", ")}"
 }
 
-/** A color row is the chip; a by-status row is the family text followed by the chip; anything else is plain text. */
+/** The color chip, followed by the finish in quieter text when the stock line has one ("שחור Matte"). */
+@Composable
+internal fun ColorWithFinish(colorName: String, colorHex: String?, finish: String, style: TextStyle = LocalTextStyle.current) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ColorNameChip(colorName, colorHex, style = style)
+        if (finish.isNotEmpty()) Text(finish, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
+}
+
+/**
+ * A color row is the chip and its finish; a by-status row is the stock line text followed by the chip;
+ * anything else is plain text.
+ */
 @Composable
 private fun RowHeadline(row: ListRow) {
     val color = row.colorName
     when {
         color == null -> Text(row.label)
-        row.label == color -> ColorNameChip(color, row.colorHex)
+        row.label == color -> ColorWithFinish(color, row.colorHex, row.finish)
         else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(row.family)
+            Text(lineName(row.family, row.finish))
             ColorNameChip(color, row.colorHex)
         }
     }
 }
 
-/** Lazy-list key: the section title and color alone repeat across families, so the family is part of it. */
-internal fun listRowKey(section: ListSection, row: ListRow) = "r-${section.title}-${row.family}-${row.colorId}"
+/** Lazy-list key: the section title and color alone repeat across stock lines, so the line is part of it. */
+internal fun listRowKey(section: ListSection, row: ListRow) = "r-${section.title}-${row.family}-${row.finish}-${row.colorId}"
 
 /** Each section header sticks to the top until the next one pushes it away, so it needs an opaque background. */
 @OptIn(ExperimentalFoundationApi::class)

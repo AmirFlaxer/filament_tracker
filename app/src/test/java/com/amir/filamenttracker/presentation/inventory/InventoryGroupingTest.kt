@@ -21,15 +21,17 @@ class InventoryGroupingTest {
     private var nextId = 1L
     private fun row(
         family: String, variant: String, materialId: Long, color: String, colorId: Long, status: SpoolStatus, slot: Int? = null,
+        finish: String = "",
     ) = SpoolRow(
         spoolId = nextId++, status = status, amsSlot = slot, orderId = null, productId = 1, brand = "X",
         weightGrams = 1000, materialId = materialId,
-        materialName = composeMaterialName(family, variant), materialFamily = family, materialVariant = variant,
+        materialName = composeMaterialName(family, variant, finish), materialFamily = family, materialVariant = variant,
+        materialFinish = finish,
         colorId = colorId, colorName = color, colorHex = null,
     )
 
-    private fun missing(family: String, color: String, colorId: Long) = AlertRow(
-        kind = AlertKind.MISSING, family = family,
+    private fun missing(family: String, color: String, colorId: Long, finish: String = "") = AlertRow(
+        kind = AlertKind.MISSING, family = family, finish = finish,
         colorId = colorId, colorName = color, colorHex = null,
         count = com.amir.filamenttracker.domain.StockCount(0, 0, 0), minSealed = 1,
     )
@@ -59,7 +61,7 @@ class InventoryGroupingTest {
         val section = byMaterial(spools).single { it.title == "PETG" }
         assertTrue(section.rows.any { it.label == "אפור" })
         assertTrue(section.rows.none { it.label.contains("Rapid") })
-        assertEquals(listOf("PETG", "PLA"), materialTable(spools, emptyList()).families)
+        assertEquals(listOf("PETG", "PLA"), materialTable(spools, emptyList()).lines.map { it.name })
         assertEquals(listOf("PETG", "PLA"), byMaterial(spools).map { it.title })
     }
 
@@ -100,6 +102,28 @@ class InventoryGroupingTest {
     }
 
     @Test
+    fun `a finish is its own row and column, while a sub-type of the same finish counts with it`() {
+        val spools = listOf(
+            row("PLA", "", 1, "שחור", 11, SEALED),
+            row("PLA", "+", 2, "שחור", 11, SEALED),
+            row("PLA", "", 3, "שחור", 11, SEALED, finish = "Matte"),
+            row("PLA", "+", 4, "שחור", 11, IN_USE, slot = 2, finish = "Matte"),
+        )
+        val pla = byMaterial(spools).single().rows
+        assertEquals(listOf("" to 2, "Matte" to 2), pla.map { it.finish to it.counts.values.sum() })
+        assertTrue(pla.all { it.label == "שחור" && it.family == "PLA" })
+
+        assertEquals(listOf("PLA", "PLA Matte"), byColor(spools).single().rows.map { it.label })
+        assertEquals("PLA Matte שחור", byStatus(spools).first { it.title == "בשימוש" }.rows.single().label)
+        assertEquals(listOf("", "Matte"), statusTable(spools).single().rows.map { it.finish })
+
+        val table = materialTable(spools, listOf(missing("PLA", "לבן", 10, finish = "Silk")))
+        assertEquals(listOf("PLA", "PLA Matte", "PLA Silk"), table.lines.map { it.name })
+        assertEquals(listOf(2, 2, null), table.rows.single { it.colorId == 11L }.cells.map { it?.total })
+        assertTrue(table.rows.single { it.colorId == 10L }.cells[2]!!.missing)
+    }
+
+    @Test
     fun `by status orders sections and lists slots`() {
         val sections = byStatus(sample)
         assertEquals(listOf("בשימוש", "פתוחים באחסון", "סגורים", "בדרך"), sections.map { it.title })
@@ -125,7 +149,7 @@ class InventoryGroupingTest {
     @Test
     fun `material table merges variants into one cell`() {
         val table = materialTable(sample, emptyList())
-        assertEquals(listOf("PETG", "PLA"), table.families)
+        assertEquals(listOf("PETG", "PLA"), table.lines.map { it.name })
         val white = table.rows.single { it.colorName == "לבן" }
         val pla = white.cells[1]!!
         assertEquals(3, pla.total)

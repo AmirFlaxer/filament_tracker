@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amir.filamenttracker.presentation.common.BackTopBar
 import com.amir.filamenttracker.presentation.common.CollectMessages
+import com.amir.filamenttracker.domain.lineName
 import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
 import com.amir.filamenttracker.presentation.common.Stepper
@@ -43,13 +44,13 @@ fun TargetsScreen(onBack: () -> Unit, vm: TargetsViewModel = hiltViewModel()) {
             }
             if (rows.isEmpty()) {
                 item {
-                    Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר ראשי וצבע.", Modifier.padding(16.dp))
+                    Text("אין עדיין מוצרים בקטלוג. כל מוצר שיתווסף יופיע כאן כשילוב של חומר ראשי, גימור וצבע.", Modifier.padding(16.dp))
                 }
             }
-            items(rows, key = { "${it.family}-${it.colorId}" }) { row ->
+            items(rows, key = { "${it.family}-${it.finish}-${it.colorId}" }) { row ->
                 val tracked = row.minSealed != null
                 ListItem(
-                    headlineContent = { Text("${row.family} ${row.colorName}") },
+                    headlineContent = { Text("${lineName(row.family, row.finish)} ${row.colorName}") },
                     supportingContent = { if (tracked) Text(if (row.minSealed!! > 0) "התראה כשיש פחות מ-${row.minSealed} סגורים" else "התראה רק כשנגמר") },
                     leadingContent = { ColorDot(resolveColorHex(row.colorName, row.colorHex)) },
                     trailingContent = {

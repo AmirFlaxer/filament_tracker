@@ -117,14 +117,14 @@ class CatalogRepositoryTest {
 
     @Test
     fun `editing a material onto another family and variant is rejected ignoring case`() = runTest {
-        val rapid = repo.addMaterial("PETG", "Rapid")
-        val hf = repo.addMaterial("PETG", "HF")
-        val error = runCatching { repo.updateMaterial(hf, "petg", "rapid") }.exceptionOrNull()
+        val pro = repo.addMaterial("PETG", "Pro")
+        val ultra = repo.addMaterial("PETG", "Ultra")
+        val error = runCatching { repo.updateMaterial(ultra, "petg", "pro") }.exceptionOrNull()
         assertTrue(error is IllegalArgumentException)
-        assertEquals("כבר קיים חומר עם אותו חומר ראשי ותת-סוג", error!!.message)
-        assertEquals("PETG HF", db.catalogDao().material(hf)!!.name)
+        assertEquals("כבר קיים חומר עם אותו חומר ראשי, תת-סוג וגימור", error!!.message)
+        assertEquals("PETG Ultra", db.catalogDao().material(ultra)!!.name)
         // Editing a material to its own family and variant, only changing the case, is fine.
-        repo.updateMaterial(rapid, "PETG", "RAPID")
+        repo.updateMaterial(pro, "PETG", "PRO")
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -132,9 +132,26 @@ class CatalogRepositoryTest {
 
     @Test
     fun `addMaterial finds the existing family and variant ignoring case`() = runTest {
+        val pro = repo.addMaterial("PETG", "Pro")
+        assertEquals(pro, repo.addMaterial("petg", "pro"))
+        assertEquals("PETG Pro", db.catalogDao().materialByName("petg pro")!!.name)
+    }
+
+    @Test
+    fun `addMaterial stores known words canonically, so aliases give one material`() = runTest {
         val rapid = repo.addMaterial("PETG", "Rapid")
-        assertEquals(rapid, repo.addMaterial("petg", "rapid"))
-        assertEquals("PETG Rapid", db.catalogDao().materialByName("petg rapid")!!.name)
+        assertEquals(rapid, repo.addMaterial("PETG", "hi speed"))
+        assertEquals(rapid, repo.addMaterial("PETG", "", "HF"))
+        val m = db.catalogDao().material(rapid)!!
+        assertEquals(listOf("PETG High Speed", "High Speed", ""), listOf(m.name, m.variant, m.finish))
+    }
+
+    @Test
+    fun `addMaterial moves a finish typed as a sub-type to the finish`() = runTest {
+        val id = repo.addMaterial("PLA", "+ silk")
+        val m = db.catalogDao().material(id)!!
+        assertEquals(listOf("PLA+ Silk", "+", "Silk"), listOf(m.name, m.variant, m.finish))
+        assertEquals(id, repo.addMaterial("pla", "+", "SILK"))
     }
 
     @Test
@@ -160,20 +177,20 @@ class CatalogRepositoryTest {
 
     @Test
     fun `addMaterial falls back to a legacy material with the composed name`() = runTest {
-        db.catalogDao().insertMaterial(com.amir.filamenttracker.data.db.MaterialEntity(name = "PETG Rapid", family = "Other", variant = "X"))
-        val legacy = db.catalogDao().materialByName("PETG Rapid")!!.id
-        assertEquals(legacy, repo.addMaterial("PETG", "Rapid"))
+        db.catalogDao().insertMaterial(com.amir.filamenttracker.data.db.MaterialEntity(name = "PETG Pro", family = "Other", variant = "X"))
+        val legacy = db.catalogDao().materialByName("PETG Pro")!!.id
+        assertEquals(legacy, repo.addMaterial("PETG", "Pro"))
     }
 
     @Test
     fun `editing onto the composed name of a legacy twin is rejected without touching the database`() = runTest {
         val dao = db.catalogDao()
-        val rapidPetg = dao.insertMaterial(MaterialEntity(name = "Rapid PETG", family = "PETG", variant = "Rapid"))
-        val petgRapid = dao.insertMaterial(MaterialEntity(name = "PETG Rapid", family = "PETG", variant = "Rapid"))
-        val error = runCatching { repo.updateMaterial(rapidPetg, "PETG", "Rapid") }.exceptionOrNull()
+        val proPetg = dao.insertMaterial(MaterialEntity(name = "Pro PETG", family = "PETG", variant = "Pro"))
+        val petgPro = dao.insertMaterial(MaterialEntity(name = "PETG Pro", family = "PETG", variant = "Pro"))
+        val error = runCatching { repo.updateMaterial(proPetg, "PETG", "Pro") }.exceptionOrNull()
         assertTrue(error is IllegalArgumentException)
-        assertEquals("Rapid PETG", dao.material(rapidPetg)!!.name)
-        assertEquals("PETG Rapid", dao.material(petgRapid)!!.name)
+        assertEquals("Pro PETG", dao.material(proPetg)!!.name)
+        assertEquals("PETG Pro", dao.material(petgPro)!!.name)
     }
 
     @Test
@@ -211,12 +228,42 @@ class CatalogRepositoryTest {
     @Test
     fun `updateMaterial recomputes the name`() = runTest {
         val id = repo.addMaterial("PETG", "Rapid")
-        repo.updateMaterial(id, "PETG", "Matte")
+        repo.updateMaterial(id, "PETG", "Rapid", "Translucent")
         val m = repo.materials.first().single { it.id == id }
-        assertEquals("PETG Matte", m.name)
+        assertEquals("PETG High Speed Translucent", m.name)
         assertEquals("PETG", m.family)
-        assertEquals("Matte", m.variant)
+        assertEquals("High Speed", m.variant)
+        assertEquals("Translucent", m.finish)
     }
+
+    @Test
+    fun `targets belong to the stock line, so a sub-type change keeps them and a finish change moves them`() = runTest {
+        val id = repo.addMaterial("PLA")
+        val black = repo.addColor("שחור")
+        db.stockDao().upsert(StockTargetEntity(family = "PLA", finish = "", colorId = black, minSealed = 2))
+        repo.removeMaterial(db.catalogDao().materialByName("PETG")!!.id)
+
+        repo.updateMaterial(id, "PLA", "+")
+        assertEquals(listOf(Triple("PLA", "", 2)), trackedTargets())
+
+        repo.updateMaterial(id, "PLA", "+", "Matte")
+        assertEquals(listOf(Triple("PLA", "Matte", 2)), trackedTargets())
+    }
+
+    @Test
+    fun `removing the last material of a line keeps the targets of another line in the family`() = runTest {
+        val plain = repo.addMaterial("PLA")
+        val matte = repo.addMaterial("PLA", "", "Matte")
+        val black = repo.addColor("שחור")
+        db.stockDao().upsert(StockTargetEntity(family = "PLA", finish = "", colorId = black, minSealed = 1))
+        db.stockDao().upsert(StockTargetEntity(family = "PLA", finish = "Matte", colorId = black, minSealed = 3))
+        assertEquals(RemoveResult.DELETED, repo.removeMaterial(matte))
+        assertEquals(listOf(Triple("PLA", "", 1)), trackedTargets())
+        assertTrue(plain > 0)
+    }
+
+    private suspend fun trackedTargets() =
+        db.stockDao().targetRows().first().filter { it.minSealed != null }.map { Triple(it.family, it.finish, it.minSealed) }
 
     @Test
     fun `updateMaterial moves family targets along when the family is renamed`() = runTest {

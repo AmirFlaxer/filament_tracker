@@ -46,7 +46,7 @@ class OrderDetailViewModel @Inject constructor(
 
     /** Saves a product typed in from the picker, then hands its id on to whatever the picker was for. */
     fun createProduct(input: NewProductInput, then: (Long) -> Unit) = launchAction {
-        then(catalog.createProduct(input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note))
+        then(catalog.createProduct(input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note, input.materialFinish))
         "המוצר נשמר"
     }
 

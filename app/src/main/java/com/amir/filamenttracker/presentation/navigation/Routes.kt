@@ -18,6 +18,7 @@ object Routes {
     const val ORDER = "order/{orderId}"
     fun order(id: Long) = "order/$id"
 
-    const val COLOR_SPOOLS = "color/{family}/{colorId}"
-    fun colorSpools(family: String, colorId: Long) = "color/${Uri.encode(family)}/$colorId"
+    const val COLOR_SPOOLS = "color/{family}/{colorId}?finish={finish}"
+    fun colorSpools(family: String, finish: String, colorId: Long) =
+        "color/${Uri.encode(family)}/$colorId?finish=${Uri.encode(finish)}"
 }

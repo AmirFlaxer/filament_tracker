@@ -18,6 +18,7 @@ import javax.inject.Singleton
 data class AlertRow(
     val kind: AlertKind,
     val family: String,
+    val finish: String = "",
     val colorId: Long,
     val colorName: String,
     val colorHex: String?,
@@ -37,25 +38,27 @@ class StockRepository @Inject constructor(private val db: AppDatabase) {
 
     val finishes: Flow<List<FinishRow>> = spoolDao.finishEvents()
 
-    suspend fun setTarget(family: String, colorId: Long, minSealed: Int) {
+    suspend fun setTarget(family: String, finish: String, colorId: Long, minSealed: Int) {
         require(minSealed in 0..20) { "מינימום חייב להיות בין 0 ל-20" }
-        // The key is case-sensitive, so drop any spelling of this family first.
+        // The key is case-sensitive, so drop any spelling of this line first.
         db.withTransaction {
-            stockDao.delete(family, colorId)
-            stockDao.upsert(StockTargetEntity(family, colorId, minSealed))
+            stockDao.delete(family, finish, colorId)
+            stockDao.upsert(StockTargetEntity(family = family, finish = finish, colorId = colorId, minSealed = minSealed))
         }
     }
 
-    suspend fun removeTarget(family: String, colorId: Long) = stockDao.delete(family, colorId)
+    suspend fun removeTarget(family: String, finish: String, colorId: Long) = stockDao.delete(family, finish, colorId)
 
     private fun buildAlerts(spools: List<SpoolRow>, rows: List<TargetRow>): List<AlertRow> {
-        val counts = StockCalculator.count(spools.map { (it.materialFamily.uppercase() to it.colorId) to it.status })
-        val tracked = rows.filter { it.minSealed != null }.associateBy { it.family.uppercase() to it.colorId }
+        val counts = StockCalculator.count(
+            spools.map { Triple(it.materialFamily.uppercase(), it.materialFinish.uppercase(), it.colorId) to it.status },
+        )
+        val tracked = rows.filter { it.minSealed != null }.associateBy { Triple(it.family.uppercase(), it.finish.uppercase(), it.colorId) }
         val targets = tracked.map { (key, row) -> StockTarget(key, row.minSealed!!) }
         return StockCalculator.alerts(counts, targets).map { alert ->
             val row = tracked.getValue(alert.key)
             AlertRow(
-                kind = alert.kind, family = row.family,
+                kind = alert.kind, family = row.family, finish = row.finish,
                 colorId = row.colorId, colorName = row.colorName, colorHex = row.colorHex,
                 count = alert.count, minSealed = alert.minSealed,
             )

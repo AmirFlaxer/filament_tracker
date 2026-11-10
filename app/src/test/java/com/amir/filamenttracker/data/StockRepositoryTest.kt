@@ -46,13 +46,13 @@ class StockRepositoryTest {
         assertEquals(listOf("לבן", "שחור"), rows.map { it.colorName })
         assertTrue(rows.all { it.minSealed == null })
 
-        stock.setTarget("PLA", black, 1)
+        stock.setTarget("PLA", "", black, 1)
         assertEquals(1, stock.targetRows.first().single { it.colorId == black }.minSealed)
     }
 
     @Test
     fun `alerts follow the spool lifecycle`() = runTest {
-        stock.setTarget("PLA", black, 1)
+        stock.setTarget("PLA", "", black, 1)
         val missing = stock.alerts.first().single()
         assertEquals(AlertKind.MISSING, missing.kind)
         assertEquals("PLA", missing.family)
@@ -75,8 +75,8 @@ class StockRepositoryTest {
 
     @Test
     fun `removing a target removes its alert`() = runTest {
-        stock.setTarget("PLA", black, 1)
-        stock.removeTarget("PLA", black)
+        stock.setTarget("PLA", "", black, 1)
+        stock.removeTarget("PLA", "", black)
         assertTrue(stock.alerts.first().isEmpty())
         assertNull(stock.targetRows.first().single { it.colorId == black }.minSealed)
     }
@@ -85,7 +85,7 @@ class StockRepositoryTest {
     fun `a sealed spool of another variant satisfies a family target`() = runTest {
         val catalog = CatalogRepository(db)
         val rapid = catalog.createProduct("Bambu", "PETG", "Rapid", "שחור", "", 1000, "")
-        stock.setTarget("PETG", black, 1)
+        stock.setTarget("PETG", "", black, 1)
         val missing = stock.alerts.first().single()
         assertEquals(AlertKind.MISSING, missing.kind)
         assertEquals("PETG", missing.family)
@@ -95,8 +95,26 @@ class StockRepositoryTest {
     }
 
     @Test
+    fun `a spool of another finish does not satisfy a target, and each finish is its own target row`() = runTest {
+        val catalog = CatalogRepository(db)
+        val matte = catalog.createProduct("Bambu", "PLA", "", "שחור", "", 1000, "", materialFinish = "Matte")
+        stock.setTarget("PLA", "Matte", black, 1)
+        inventory.addExisting(blackProduct, 1, SEALED, slot = null)
+        val missing = stock.alerts.first().single()
+        assertEquals(AlertKind.MISSING, missing.kind)
+        assertEquals("Matte", missing.finish)
+
+        inventory.addExisting(matte, 1, SEALED, slot = null)
+        assertTrue(stock.alerts.first().isEmpty())
+        assertEquals(
+            listOf("" to null, "Matte" to 1),
+            stock.targetRows.first().filter { it.colorId == black }.map { it.finish to it.minSealed },
+        )
+    }
+
+    @Test
     fun `a target whose materials are all archived stays listed and alerts do not crash`() = runTest {
-        stock.setTarget("PLA", black, 1)
+        stock.setTarget("PLA", "", black, 1)
         val plaId = db.catalogDao().materialByName("PLA")!!.id
         db.catalogDao().setMaterialArchived(plaId, true)
         val rows = stock.targetRows.first().filter { it.colorId == black && it.family.equals("PLA", true) }
@@ -108,8 +126,8 @@ class StockRepositoryTest {
     fun `target family matches ignoring case`() = runTest {
         val catalog = CatalogRepository(db)
         val petg = catalog.createProduct("Bambu", "petg", "", "שחור", "", 1000, "")
-        stock.setTarget("PETG", black, 1)
-        stock.setTarget("petg", black, 2)
+        stock.setTarget("PETG", "", black, 1)
+        stock.setTarget("petg", "", black, 2)
         val petgRows = stock.targetRows.first().filter { it.colorId == black && it.family.equals("PETG", true) }
         assertEquals(listOf(2), petgRows.map { it.minSealed })
         inventory.addExisting(petg, 2, SEALED, slot = null)
@@ -127,5 +145,5 @@ class StockRepositoryTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `negative minimum is rejected`() = runTest { stock.setTarget("PLA", black, -1) }
+    fun `negative minimum is rejected`() = runTest { stock.setTarget("PLA", "", black, -1) }
 }

@@ -56,7 +56,7 @@ private fun HeaderText(text: String, modifier: Modifier) {
     )
 }
 
-internal fun statusRowKey(section: StatusTableSection, row: StatusTableRow) = "sr-${section.family}-${row.colorId}"
+internal fun statusRowKey(section: StatusTableSection, row: StatusTableRow) = "sr-${section.family}-${row.finish}-${row.colorId}"
 
 /** The column names, kept above the list so they stay in place while the rows scroll. */
 @Composable
@@ -91,7 +91,7 @@ fun LazyListScope.statusTableItems(sections: List<StatusTableSection>, onRowClic
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    ColorNameChip(row.label, row.colorHex)
+                    ColorWithFinish(row.label, row.colorHex, row.finish)
                 }
                 NumberCell(row.inUse)
                 NumberCell(row.open)
@@ -135,27 +135,27 @@ private fun MaterialTableCell(cell: MaterialCell?, onClick: () -> Unit) {
     }
 }
 
-/** Fixed-width name column when the table scrolls, otherwise it takes the space the families leave. */
+/** Fixed-width name column when the table scrolls, otherwise it takes the space the stock lines leave. */
 private fun RowScope.nameColumn(scrolls: Boolean): Modifier =
     if (scrolls) Modifier.width(NameWidth) else Modifier.weight(1f)
 
-private val MaterialTable.scrolls: Boolean get() = families.size > 3
+private val MaterialTable.scrolls: Boolean get() = lines.size > 3
 
-/** The header and the body each get this frame with the same [scroll], so the family names move sideways with their columns. */
+/** The header and the body each get this frame with the same [scroll], so the stock line names move sideways with their columns. */
 private fun MaterialTable.frame(scroll: ScrollState): Modifier {
     val outer = if (scrolls) Modifier.horizontalScroll(scroll) else Modifier.fillMaxWidth()
     // Inside horizontalScroll the width is unbounded, so the scrolling table gets an explicit width for its dividers.
-    val sized = if (scrolls) Modifier.width(NameWidth + FamilyWidth * families.size) else Modifier
+    val sized = if (scrolls) Modifier.width(NameWidth + FamilyWidth * lines.size) else Modifier
     return outer.padding(horizontal = 16.dp).then(sized)
 }
 
-/** The family names, kept above the list so they stay in place while the colors scroll. */
+/** The stock line names, kept above the list so they stay in place while the colors scroll. */
 @Composable
 fun MaterialTableHeader(table: MaterialTable, scroll: ScrollState) {
     Column(table.frame(scroll)) {
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("צבע", nameColumn(table.scrolls), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            table.families.forEach { HeaderText(it, Modifier.width(FamilyWidth)) }
+            table.lines.forEach { HeaderText(it.name, Modifier.width(FamilyWidth)) }
         }
         HorizontalDivider()
     }
@@ -164,7 +164,7 @@ fun MaterialTableHeader(table: MaterialTable, scroll: ScrollState) {
 fun LazyListScope.materialTableItems(
     table: MaterialTable,
     scroll: ScrollState,
-    onCell: (family: String, colorId: Long, cell: MaterialCell) -> Unit,
+    onCell: (line: StockLine, colorId: Long, cell: MaterialCell) -> Unit,
 ) {
     val scrolls = table.scrolls
     item(key = "mt-body") {
@@ -175,7 +175,7 @@ fun LazyListScope.materialTableItems(
                     Row(nameColumn(scrolls), verticalAlignment = Alignment.CenterVertically) {
                         ColorNameChip(row.colorName, row.colorHex, style = MaterialTheme.typography.bodyMedium)
                     }
-                    row.cells.forEachIndexed { i, cell -> MaterialTableCell(cell) { cell?.let { onCell(table.families[i], row.colorId, it) } } }
+                    row.cells.forEachIndexed { i, cell -> MaterialTableCell(cell) { cell?.let { onCell(table.lines[i], row.colorId, it) } } }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }

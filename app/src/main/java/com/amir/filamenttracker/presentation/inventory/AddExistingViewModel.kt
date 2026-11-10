@@ -62,6 +62,7 @@ class AddExistingViewModel @Inject constructor(
     fun createProduct(input: NewProductInput) = launchAction {
         setSelected(catalog.createProduct(
             input.brand, input.materialFamily, input.materialVariant, input.colorName, input.colorHex, input.weightGrams, input.note,
+            input.materialFinish,
         ))
         "המוצר נשמר"
     }

@@ -3,6 +3,7 @@ package com.amir.filamenttracker.presentation.inventory
 import com.amir.filamenttracker.data.AlertRow
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.domain.AlertKind
+import com.amir.filamenttracker.domain.lineName
 import com.amir.filamenttracker.domain.model.SpoolStatus
 
 data class ListRow(
@@ -14,6 +15,8 @@ data class ListRow(
     val slots: List<Int> = emptyList(),
     /** Set when the row stands for a color, so the screen can draw it as a chip; null when the label is plain text. */
     val colorName: String? = null,
+    /** The finish of the row's stock line; empty is the plain finish. */
+    val finish: String = "",
 )
 
 /** [isColor] marks a by-color section, whose title is a color name drawn as a chip even when it has no stored hue. */
@@ -24,6 +27,7 @@ data class StatusTableRow(
     val colorId: Long,
     val label: String,
     val colorHex: String?,
+    val finish: String = "",
     val inUse: Int,
     val open: Int,
     val sealed: Int,
@@ -40,53 +44,85 @@ data class MaterialCell(val counts: Map<SpoolStatus, Int>, val missing: Boolean)
 
 data class MaterialTableRow(val colorId: Long, val colorName: String, val colorHex: String?, val cells: List<MaterialCell?>)
 
-data class MaterialTable(val families: List<String>, val rows: List<MaterialTableRow>)
+/** A stock line: spools of one main material and finish (any sub-type) count together. */
+data class StockLine(val family: String, val finish: String) {
+    val name: String get() = lineName(family, finish)
+}
+
+/** Rows are colors, columns are stock lines. */
+data class MaterialTable(val lines: List<StockLine>, val rows: List<MaterialTableRow>)
 
 /** Finished spools are history, not stock. Ordered ones stay, shown as "on the way". */
 private fun live(spools: List<SpoolRow>) = spools.filter { it.status != SpoolStatus.FINISHED }
 
 private fun familyKey(family: String) = family.uppercase()
 
-/** Family spelling per [familyKey]: taken from the alphabetically first material name, so it is stable. */
-private fun familyNames(spools: List<SpoolRow>, extraFamilies: Collection<String> = emptyList()): Map<String, String> {
-    val fromSpools = spools.sortedBy { it.materialName }.reversed().associate { familyKey(it.materialFamily) to it.materialFamily }
-    return extraFamilies.sorted().reversed().associate { familyKey(it) to it }.filterKeys { it !in fromSpools } + fromSpools
+private typealias LineKey = Pair<String, String>
+
+private fun lineKey(family: String, finish: String): LineKey = family.uppercase() to finish.uppercase()
+
+private val SpoolRow.lineKey: LineKey get() = lineKey(materialFamily, materialFinish)
+
+/**
+ * Spelling of every stock line: the family spelling is shared by all lines of the family, and each
+ * part is taken from the alphabetically first material name, so it is stable.
+ */
+private class Spellings(spools: List<SpoolRow>, extraLines: Collection<StockLine> = emptyList()) {
+    private val families: Map<String, String>
+    private val finishes: Map<LineKey, String>
+
+    init {
+        val sorted = spools.sortedBy { it.materialName }.reversed()
+        val extras = extraLines.sortedBy { it.name }.reversed()
+        families = extras.associate { familyKey(it.family) to it.family } +
+            sorted.associate { familyKey(it.materialFamily) to it.materialFamily }
+        finishes = extras.associate { lineKey(it.family, it.finish) to it.finish } +
+            sorted.associate { it.lineKey to it.materialFinish }
+    }
+
+    fun family(key: String): String = families.getValue(key)
+    fun line(key: LineKey): StockLine = StockLine(families.getValue(key.first), finishes.getValue(key))
 }
 
 private fun List<SpoolRow>.countsByStatus(): Map<SpoolStatus, Int> = groupingBy { it.status }.eachCount()
 
-/** A row per main material and color: every variant of the family counts together, the variant shows on the spools screen. */
-private fun familyColorRows(spools: List<SpoolRow>, names: Map<String, String>): List<ListRow> =
-    spools.groupBy { familyKey(it.materialFamily) to it.colorId }.map { (key, group) ->
+/**
+ * A row per stock line and color within one family: every sub-type counts together (it shows on the
+ * spools screen), and the finish shows next to the color.
+ */
+private fun lineColorRows(spools: List<SpoolRow>, names: Spellings): List<ListRow> =
+    spools.groupBy { it.lineKey to it.colorId }.map { (key, group) ->
         val first = group.first()
+        val line = names.line(key.first)
         ListRow(
-            family = names.getValue(key.first),
+            family = line.family,
             colorId = first.colorId,
             label = first.colorName,
             colorHex = first.colorHex,
             counts = group.countsByStatus(),
             colorName = first.colorName,
+            finish = line.finish,
         )
-    }.sortedBy { it.label }
+    }.sortedWith(compareBy({ it.label }, { it.finish }))
 
 fun byMaterial(spools: List<SpoolRow>): List<ListSection> {
     val rows = live(spools)
-    val names = familyNames(rows)
+    val names = Spellings(rows)
     return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
-        ListSection(names.getValue(key), null, familyColorRows(group, names))
+        ListSection(names.family(key), null, lineColorRows(group, names))
     }
 }
 
 fun byColor(spools: List<SpoolRow>): List<ListSection> {
     val rows = live(spools)
-    val names = familyNames(rows)
+    val names = Spellings(rows)
     return rows.groupBy { it.colorId }.values.map { group ->
         val first = group.first()
-        val perFamily = group.groupBy { familyKey(it.materialFamily) }.map { (key, inFamily) ->
-            val family = names.getValue(key)
-            ListRow(family, first.colorId, family, first.colorHex, inFamily.countsByStatus())
+        val perLine = group.groupBy { it.lineKey }.map { (key, inLine) ->
+            val line = names.line(key)
+            ListRow(line.family, first.colorId, line.name, first.colorHex, inLine.countsByStatus(), finish = line.finish)
         }.sortedBy { it.label }
-        ListSection(first.colorName, first.colorHex, perFamily, isColor = true)
+        ListSection(first.colorName, first.colorHex, perLine, isColor = true)
     }.sortedBy { it.title }
 }
 
@@ -99,21 +135,22 @@ private val statusSections = listOf(
 
 fun byStatus(spools: List<SpoolRow>): List<ListSection> {
     val rows = live(spools)
-    val names = familyNames(rows)
+    val names = Spellings(rows)
     return statusSections.mapNotNull { (status, title) ->
         val inStatus = rows.filter { it.status == status }
         if (inStatus.isEmpty()) return@mapNotNull null
-        val listRows = inStatus.groupBy { familyKey(it.materialFamily) to it.colorId }.map { (key, group) ->
+        val listRows = inStatus.groupBy { it.lineKey to it.colorId }.map { (key, group) ->
             val first = group.first()
-            val family = names.getValue(key.first)
+            val line = names.line(key.first)
             ListRow(
-                family = family,
+                family = line.family,
                 colorId = first.colorId,
-                label = "$family ${first.colorName}",
+                label = "${line.name} ${first.colorName}",
                 colorHex = first.colorHex,
                 counts = mapOf(status to group.size),
                 slots = if (status == SpoolStatus.IN_USE) group.mapNotNull { it.amsSlot }.sorted() else emptyList(),
                 colorName = first.colorName,
+                finish = line.finish,
             )
         }.sortedBy { it.label }
         ListSection(title, null, listRows)
@@ -122,29 +159,31 @@ fun byStatus(spools: List<SpoolRow>): List<ListSection> {
 
 fun statusTable(spools: List<SpoolRow>): List<StatusTableSection> {
     val rows = live(spools)
-    val names = familyNames(rows)
+    val names = Spellings(rows)
     return rows.groupBy { familyKey(it.materialFamily) }.toSortedMap().map { (key, group) ->
-        val tableRows = familyColorRows(group, names).map { row ->
+        val tableRows = lineColorRows(group, names).map { row ->
             StatusTableRow(
                 family = row.family,
                 colorId = row.colorId,
                 label = row.label,
                 colorHex = row.colorHex,
+                finish = row.finish,
                 inUse = row.counts[SpoolStatus.IN_USE] ?: 0,
                 open = row.counts[SpoolStatus.OPEN_STORED] ?: 0,
                 sealed = row.counts[SpoolStatus.SEALED] ?: 0,
                 ordered = row.counts[SpoolStatus.ORDERED] ?: 0,
             )
         }
-        StatusTableSection(names.getValue(key), tableRows)
+        StatusTableSection(names.family(key), tableRows)
     }
 }
 
 fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable {
     val rows = live(spools)
     val missing = alerts.filter { it.kind == AlertKind.MISSING }
-    val names = familyNames(rows, missing.map { it.family })
-    val families = names.keys.sorted()
+    val names = Spellings(rows, missing.map { StockLine(it.family, it.finish) })
+    val lineKeys = (rows.map { it.lineKey } + missing.map { lineKey(it.family, it.finish) })
+        .distinct().sortedWith(compareBy({ it.first }, { it.second }))
 
     // One entry per color, taking name and hue from whichever side mentions it.
     val colors = (rows.map { Triple(it.colorId, it.colorName, it.colorHex) } +
@@ -152,9 +191,9 @@ fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable
         .distinctBy { it.first }.sortedBy { it.second }
 
     val tableRows = colors.map { (colorId, colorName, colorHex) ->
-        val cells = families.map { family ->
-            val inCell = rows.filter { it.colorId == colorId && familyKey(it.materialFamily) == family }
-            val missingHere = missing.filter { it.colorId == colorId && familyKey(it.family) == family }
+        val cells = lineKeys.map { line ->
+            val inCell = rows.filter { it.colorId == colorId && it.lineKey == line }
+            val missingHere = missing.filter { it.colorId == colorId && lineKey(it.family, it.finish) == line }
             if (inCell.isEmpty() && missingHere.isEmpty()) {
                 null
             } else {
@@ -166,5 +205,5 @@ fun materialTable(spools: List<SpoolRow>, alerts: List<AlertRow>): MaterialTable
         }
         MaterialTableRow(colorId, colorName, colorHex, cells)
     }
-    return MaterialTable(families.map { names.getValue(it) }, tableRows)
+    return MaterialTable(lineKeys.map { names.line(it) }, tableRows)
 }

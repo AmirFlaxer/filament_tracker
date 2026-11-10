@@ -9,6 +9,7 @@ import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.data.db.StockTargetEntity
 import com.amir.filamenttracker.domain.ColorHex
 import com.amir.filamenttracker.domain.composeMaterialName
+import com.amir.filamenttracker.domain.normalizeMaterialParts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -31,19 +32,18 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     }
 
     /**
-     * Id of the material with this main material and sub-type: the existing one (revived if
-     * archived), else one whose composed name matches, else a new one.
+     * Id of the material with this main material, sub-type and finish: the existing one (revived if
+     * archived), else one whose composed name matches, else a new one. Sub-type and finish are
+     * normalized first ([normalizeMaterialParts]), so "silk" typed as a sub-type is the finish "Silk".
      */
-    suspend fun addMaterial(family: String, variant: String = ""): Long = db.withTransaction {
+    suspend fun addMaterial(family: String, variant: String = "", finish: String = ""): Long = db.withTransaction {
         val cleanFamily = cleanName(family, what = "חומר ראשי")
-        val cleanVariant = cleanText(variant)
-        val existing = dao.materialByFamilyVariant(cleanFamily, cleanVariant)
-            ?: dao.materialByName(composeMaterialName(cleanFamily, cleanVariant))
+        val parts = normalizeMaterialParts(cleanText(variant), cleanText(finish))
+        val name = composeMaterialName(cleanFamily, parts.variant, parts.finish)
+        val existing = dao.materialByParts(cleanFamily, parts.variant, parts.finish) ?: dao.materialByName(name)
         if (existing == null) {
             dao.insertMaterial(
-                MaterialEntity(
-                    name = composeMaterialName(cleanFamily, cleanVariant), family = cleanFamily, variant = cleanVariant,
-                ),
+                MaterialEntity(name = name, family = cleanFamily, variant = parts.variant, finish = parts.finish),
             )
         } else {
             if (existing.archived) dao.setMaterialArchived(existing.id, false)
@@ -73,10 +73,11 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         colorHex: String,
         weightGrams: Int,
         note: String,
+        materialFinish: String = "",
     ): Long = db.withTransaction {
         val cleanBrand = cleanName(brand, what = "מותג")
         require(weightGrams > 0) { "משקל חייב להיות גדול מאפס" }
-        val materialId = addMaterial(materialFamily, materialVariant)
+        val materialId = addMaterial(materialFamily, materialVariant, materialFinish)
         val colorId = addColor(colorName, colorHex)
         dao.insertProduct(
             ProductEntity(
@@ -86,30 +87,32 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         )
     }
 
-    suspend fun updateMaterial(id: Long, family: String, variant: String) = db.withTransaction {
+    suspend fun updateMaterial(id: Long, family: String, variant: String, finish: String = "") = db.withTransaction {
         val cleanFamily = cleanName(family, what = "חומר ראשי")
-        val cleanVariant = cleanText(variant)
-        val name = composeMaterialName(cleanFamily, cleanVariant)
-        val clash = listOfNotNull(dao.materialByFamilyVariant(cleanFamily, cleanVariant), dao.materialByName(name))
+        val parts = normalizeMaterialParts(cleanText(variant), cleanText(finish))
+        val name = composeMaterialName(cleanFamily, parts.variant, parts.finish)
+        val clash = listOfNotNull(dao.materialByParts(cleanFamily, parts.variant, parts.finish), dao.materialByName(name))
             .firstOrNull { it.id != id }
-        require(clash == null) { "כבר קיים חומר עם אותו חומר ראשי ותת-סוג" }
+        require(clash == null) { "כבר קיים חומר עם אותו חומר ראשי, תת-סוג וגימור" }
         val old = dao.material(id)
-        dao.updateMaterial(id, name, cleanFamily, cleanVariant)
-        // A renamed family (including a case-only change) takes its targets with it, unless another
-        // material still uses the old one.
-        if (old != null && old.family != cleanFamily &&
-            dao.otherActiveMaterialsInFamily(id, old.family) == 0
+        dao.updateMaterial(id, name, cleanFamily, parts.variant, parts.finish)
+        // A changed stock line (family or finish, including a case-only change) takes its targets
+        // with it, unless another material still uses the old one.
+        if (old != null && (old.family != cleanFamily || old.finish != parts.finish) &&
+            dao.otherActiveMaterialsInLine(id, old.family, old.finish) == 0
         ) {
-            val moving = stockDao.targetsOfFamily(old.family)
-            stockDao.deleteForFamily(old.family)
+            val moving = stockDao.targetsOfLine(old.family, old.finish)
+            stockDao.deleteForLine(old.family, old.finish)
             for (target in moving) {
-                // Merge into an existing target of the new family (any spelling), keeping the highest minimum.
-                val existing = stockDao.targetsOfFamily(cleanFamily).firstOrNull { it.colorId == target.colorId }
-                stockDao.delete(cleanFamily, target.colorId)
+                // Merge into an existing target of the new line (any spelling), keeping the highest minimum.
+                val existing = stockDao.targetsOfLine(cleanFamily, parts.finish).firstOrNull { it.colorId == target.colorId }
+                stockDao.delete(cleanFamily, parts.finish, target.colorId)
                 stockDao.upsert(
                     StockTargetEntity(
-                        existing?.family ?: cleanFamily, target.colorId,
-                        maxOf(target.minSealed, existing?.minSealed ?: 0),
+                        family = existing?.family ?: cleanFamily,
+                        finish = existing?.finish ?: parts.finish,
+                        colorId = target.colorId,
+                        minSealed = maxOf(target.minSealed, existing?.minSealed ?: 0),
                     ),
                 )
             }
@@ -130,7 +133,7 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
 
     /** Spec section 4: archive when something still uses it, otherwise delete. */
     suspend fun removeMaterial(id: Long): RemoveResult = db.withTransaction {
-        val family = dao.material(id)?.family
+        val material = dao.material(id)
         val result = if (dao.productCountForMaterial(id) > 0) {
             dao.setMaterialArchived(id, true)
             RemoveResult.ARCHIVED
@@ -138,8 +141,10 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
             dao.deleteMaterial(id)
             RemoveResult.DELETED
         }
-        // Targets belong to the main material: they go only with its last active material.
-        if (family != null && dao.otherActiveMaterialsInFamily(id, family) == 0) stockDao.deleteForFamily(family)
+        // Targets belong to the stock line: they go only with its last active material.
+        if (material != null && dao.otherActiveMaterialsInLine(id, material.family, material.finish) == 0) {
+            stockDao.deleteForLine(material.family, material.finish)
+        }
         result
     }
 

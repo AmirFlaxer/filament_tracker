@@ -30,12 +30,19 @@ import com.amir.filamenttracker.data.db.ColorEntity
 import com.amir.filamenttracker.data.db.MaterialEntity
 import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.data.db.title
+import com.amir.filamenttracker.domain.COMMON_FINISH_TERMS
 import com.amir.filamenttracker.domain.ColorHex
+import com.amir.filamenttracker.domain.MORE_FINISH_TERMS
+import com.amir.filamenttracker.domain.VARIANT_TERMS
+import com.amir.filamenttracker.domain.hasTerm
+import com.amir.filamenttracker.domain.isKnownTermsOnly
+import com.amir.filamenttracker.domain.toggleTerm
 
 data class NewProductInput(
     val brand: String,
     val materialFamily: String,
     val materialVariant: String,
+    val materialFinish: String,
     val colorName: String,
     val colorHex: String,
     val weightGrams: Int,
@@ -43,8 +50,9 @@ data class NewProductInput(
 )
 
 /**
- * Main material, sub-type and color are typed as names: existing ones can be picked from chips,
- * and a new name creates a new material or color (CatalogRepository merges ones that already exist).
+ * Main material, sub-type, finish and color are typed as names: existing ones can be picked from
+ * chips, and a new name creates a new material or color (CatalogRepository merges ones that already
+ * exist). Sub-type and finish chips add or remove one known word, so several can be combined.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,21 +66,25 @@ fun NewProductDialog(
     var brand by rememberSaveable { mutableStateOf("") }
     var family by rememberSaveable { mutableStateOf(materials.firstOrNull()?.family ?: "") }
     var variant by rememberSaveable { mutableStateOf("") }
+    var finish by rememberSaveable { mutableStateOf("") }
+    var moreFinishes by rememberSaveable { mutableStateOf(false) }
     var color by rememberSaveable { mutableStateOf("") }
     var hex by rememberSaveable { mutableStateOf("") }
     var weight by rememberSaveable { mutableStateOf("1000") }
     var note by rememberSaveable { mutableStateOf("") }
 
     val families = materials.map { it.family }.distinctBy { it.uppercase() }
-    val variants = materials
-        .filter { it.family.equals(family.trim(), ignoreCase = true) && it.variant.isNotBlank() }
-        .map { it.variant }.distinctBy { it.uppercase() }
+    // Known words have their own chips; a free sub-type or finish already used in this family gets one too.
+    val inFamily = materials.filter { it.family.equals(family.trim(), ignoreCase = true) }
+    val freeVariants = inFamily.map { it.variant }.filter { it.isNotBlank() && !isKnownTermsOnly(it) }.distinctBy { it.uppercase() }
+    val freeFinishes = inFamily.map { it.finish }.filter { it.isNotBlank() && !isKnownTermsOnly(it) }.distinctBy { it.uppercase() }
+    val finishChips = COMMON_FINISH_TERMS + MORE_FINISH_TERMS.filter { moreFinishes || hasTerm(finish, it) }
 
     val weightValue = weight.toIntOrNull() ?: 0
     val hexValid = runCatching { ColorHex.normalize(hex) }.isSuccess
-    // A variant only makes sense inside its family: when the family changes, drop a variant the new one lacks.
+    // A free sub-type only makes sense inside its family: when the family changes, drop one the new family lacks.
     fun changeFamily(newFamily: String) {
-        if (!newFamily.trim().equals(family.trim(), ignoreCase = true) &&
+        if (!isKnownTermsOnly(variant) && !newFamily.trim().equals(family.trim(), ignoreCase = true) &&
             materials.none {
                 it.family.equals(newFamily.trim(), ignoreCase = true) && it.variant.equals(variant.trim(), ignoreCase = true)
             }
@@ -105,9 +117,22 @@ fun NewProductDialog(
                 }
                 OutlinedTextField(variant, { variant = it }, label = { Text("תת-סוג, לא חובה") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    variants.forEach { v ->
+                    VARIANT_TERMS.forEach { t ->
+                        FilterChip(selected = hasTerm(variant, t), onClick = { variant = toggleTerm(variant, t) }, label = { Text(t) })
+                    }
+                    freeVariants.forEach { v ->
                         FilterChip(selected = variant.trim().equals(v, ignoreCase = true), onClick = { variant = v }, label = { Text(v) })
                     }
+                }
+                OutlinedTextField(finish, { finish = it }, label = { Text("גימור, לא חובה") }, singleLine = true)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    finishChips.forEach { t ->
+                        FilterChip(selected = hasTerm(finish, t), onClick = { finish = toggleTerm(finish, t) }, label = { Text(t) })
+                    }
+                    freeFinishes.forEach { f ->
+                        FilterChip(selected = finish.trim().equals(f, ignoreCase = true), onClick = { finish = f }, label = { Text(f) })
+                    }
+                    TextButton(onClick = { moreFinishes = !moreFinishes }) { Text(if (moreFinishes) "פחות גימורים" else "עוד גימורים") }
                 }
                 OutlinedTextField(color, { color = it }, label = { Text("צבע") }, singleLine = true)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -140,7 +165,7 @@ fun NewProductDialog(
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onConfirm(NewProductInput(brand, family, variant, color, hex, weightValue, note)) },
+                onClick = { onConfirm(NewProductInput(brand, family, variant, finish, color, hex, weightValue, note)) },
             ) { Text("שמור") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("ביטול") } },
