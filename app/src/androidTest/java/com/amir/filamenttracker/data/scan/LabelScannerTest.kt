@@ -20,14 +20,18 @@ class LabelScannerTest {
             file.outputStream().use { input.copyTo(it) }
         }
 
-        val result = LabelScanner(context).scan(Uri.fromFile(file))
-        println("OCR_TEXT_BEGIN\n${result.text}\nOCR_TEXT_END barcodes=${result.barcodes}")
+        try {
+            val result = LabelScanner(context).scan(Uri.fromFile(file))
+            println("OCR_TEXT_BEGIN\n${result.text}\nOCR_TEXT_END barcodes=${result.barcodes}")
 
-        assertTrue(result.text, result.text.contains("XZN", ignoreCase = true))
-        assertTrue(result.text, result.text.contains("Silk Gold", ignoreCase = true))
-        val reading = readLabel(result.text, emptyList(), listOf("PLA", "PETG"), emptyList())
-        assertEquals("PLA", reading.family)
-        assertEquals("Silk", reading.finish)
-        assertEquals("XZN", reading.brand)
+            assertTrue(result.text, result.text.contains("XZN", ignoreCase = true))
+            assertTrue(result.text, result.text.contains("Silk Gold", ignoreCase = true))
+            val reading = readLabel(result.text, emptyList(), listOf("PLA", "PETG"), emptyList())
+            assertEquals("PLA", reading.family)
+            assertEquals("Silk", reading.finish)
+            assertEquals("XZN", reading.brand)
+        } finally {
+            file.delete()
+        }
     }
 }
