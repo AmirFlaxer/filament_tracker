@@ -7,7 +7,7 @@ import com.amir.filamenttracker.domain.colorParts
 import com.amir.filamenttracker.domain.isGenericBrand
 
 sealed interface ScanMatch {
-    /** brandConfirmed=false: matched by line and color only; the label's brand is [labelBrand]. */
+    /** brandConfirmed=false: matched by line and color only; [labelBrand] is the label's brand, or null when none was read. */
     data class Found(val spools: List<SpoolRow>, val brandConfirmed: Boolean, val labelBrand: String?) : ScanMatch
     data class GenericSuggestion(val labelBrand: String, val spools: List<SpoolRow>) : ScanMatch
     data class KnownProductNoSpool(val productId: Long) : ScanMatch
@@ -18,7 +18,7 @@ sealed interface ScanMatch {
 fun matchScan(reading: LabelReading, barcodeProductId: Long?, candidates: List<SpoolRow>): ScanMatch {
     if (barcodeProductId != null) {
         val byProduct = candidates.filter { it.productId == barcodeProductId }
-        if (byProduct.isNotEmpty()) return ScanMatch.Found(byProduct, true, reading.brand)
+        if (byProduct.isNotEmpty()) return ScanMatch.Found(variantFirst(byProduct, reading), true, reading.brand)
         val byText = matchByText(reading, candidates)
         return if (byText == ScanMatch.None) ScanMatch.KnownProductNoSpool(barcodeProductId) else byText
     }
@@ -43,7 +43,7 @@ private fun matchByText(reading: LabelReading, candidates: List<SpoolRow>): Scan
         val generics = line.filter { isGenericBrand(it.brand) }
         if (generics.isNotEmpty()) return ScanMatch.GenericSuggestion(brand, generics)
     }
-    if (line.isNotEmpty()) return ScanMatch.Found(variantFirst(line, reading), brand == null, brand)
+    if (line.isNotEmpty()) return ScanMatch.Found(variantFirst(line, reading), false, brand)
     return ScanMatch.None
 }
 

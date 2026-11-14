@@ -75,7 +75,7 @@ class ScanMatcherTest {
     @Test fun `generic reading brand is treated as unknown`() {
         val g = row(1, "גנרי", "PLA", "", "Black")
         val result = matchScan(reading("Generic", "PLA", "", "Black"), null, listOf(g))
-        assertEquals(ScanMatch.Found(listOf(g), true, null), result)
+        assertEquals(ScanMatch.Found(listOf(g), false, null), result)
     }
 
     @Test fun `finish must match exactly`() {
@@ -92,6 +92,18 @@ class ScanMatcherTest {
         val a = row(1, "Sunlu", "PLA", "", "שחור")
         val result = matchScan(reading("Sunlu", "PLA", "", "Black"), null, listOf(a))
         assertEquals(ScanMatch.Found(listOf(a), true, "Sunlu"), result)
+    }
+
+    @Test fun `family and brand compare case-insensitively`() {
+        val a = row(1, "isanmate", "pla", "", "Black")
+        val result = matchScan(reading("iSANMATE", "PLA", "", "Black"), null, listOf(a))
+        assertEquals(ScanMatch.Found(listOf(a), true, "iSANMATE"), result)
+    }
+
+    @Test fun `empty brand spool counts as generic`() {
+        val g = row(1, "", "PLA", "", "Black")
+        val result = matchScan(reading("XZN", "PLA", "", "Black"), null, listOf(g))
+        assertEquals(ScanMatch.GenericSuggestion("XZN", listOf(g)), result)
     }
 
     @Test fun `variant breaks ties`() {
