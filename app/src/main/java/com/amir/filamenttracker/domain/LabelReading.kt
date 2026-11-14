@@ -13,6 +13,8 @@ data class LabelReading(
 fun isGenericBrand(brand: String): Boolean = brand.trim().lowercase().let { it.isEmpty() || it == "גנרי" || it == "generic" }
 
 private val CLEAR_AFTER_COLOR = Regex("""color\s*:\s*clear""", RegexOption.IGNORE_CASE)
+private val CODE_WITH_DIGIT = Regex("""[\p{L}-]*\d[\p{L}\p{N}-]*""")
+private val CARBON_WORD = Regex("""carbon\s+(\p{L}+)""", RegexOption.IGNORE_CASE)
 private val LATIN_LINE = Regex("^[A-Za-z]{2,20}$")
 
 private fun wordsOf(text: String): List<String> =
@@ -35,13 +37,28 @@ fun readLabel(text: String, knownBrands: List<String>, knownFamilies: List<Strin
         }
     }
 
+    val knownParts = knownColors.flatMap { colorParts(it) }
+    val colorKeys = paletteColorKeys + knownParts.map { colorKey(it) }
+
+    // A code with a digit ("HS-1216") is a batch number, never a term. "Carbon" before a color word is a color name.
     val termText = text.replace(CLEAR_AFTER_COLOR, "color:")
+        .replace(CODE_WITH_DIGIT, " ")
+        .replace(CARBON_WORD) { m -> if (colorKey(m.groupValues[1]) in colorKeys) m.groupValues[1] else m.value }
     val variantSeed = (listOfNotNull("+".takeIf { plus }) + VARIANT_TERMS.filter { hasTerm(termText, it) }).joinToString(" ")
     val finishSeed = (COMMON_FINISH_TERMS + MORE_FINISH_TERMS).filter { hasTerm(termText, it) }.joinToString(" ")
     val parts = normalizeMaterialParts(variantSeed, finishSeed)
 
-    val colorKeys = paletteColorKeys + knownColors.flatMap { colorParts(it) }.map { colorKey(it) }
-    val colors = words.map { colorKey(it) }.filter { it in colorKeys }.toSet()
+    // Known colors of several words match as whole phrases first, longest first, and their words are consumed.
+    var rest = text
+    val colors = mutableSetOf<String>()
+    for (phrase in knownParts.filter { it.trim().contains(Regex("""\s""")) }.sortedByDescending { it.length }) {
+        val pattern = Regex("""(?<![\p{L}\p{N}])""" + phrase.trim().split(Regex("""\s+""")).joinToString("""\s+""") { Regex.escape(it) } + """(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+        if (pattern.containsMatchIn(rest)) {
+            colors += colorKey(phrase)
+            rest = rest.replace(pattern, " ")
+        }
+    }
+    colors += wordsOf(rest).map { colorKey(it) }.filter { it in colorKeys }
 
     val brand = findKnownBrand(text, knownBrands) ?: firstLineBrand(text, knownFamilies, colorKeys)
     return LabelReading(brand, family, parts.variant, parts.finish, colors)

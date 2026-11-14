@@ -47,7 +47,7 @@ class LabelReadingTest {
     }
 
     @Test fun `short terms count only as whole words`() {
-        assertEquals("", readLabel("PLA this", emptyList(), listOf("PLA"), emptyList()).variant)
+        assertEquals("", readLabel("PLA ahs hsm", emptyList(), listOf("PLA"), emptyList()).variant)
         assertEquals("High Speed", readLabel("PLA HS", emptyList(), listOf("PLA"), emptyList()).variant)
     }
 
@@ -63,5 +63,23 @@ class LabelReadingTest {
 
     @Test fun `empty text reads nothing`() {
         assertEquals(LabelReading(null, null, "", "", emptySet()), readLabel("", emptyList(), listOf("PLA"), emptyList()))
+    }
+
+    @Test fun `hyphenated codes are not terms`() {
+        val r = readLabel("PLA HS-1216 TRI-0438 Black", emptyList(), listOf("PLA"), emptyList())
+        assertEquals("", r.variant)
+        assertEquals("", r.finish)
+    }
+
+    @Test fun `carbon black is a color not carbon fiber`() {
+        val r = readLabel("PLA Carbon Black", emptyList(), listOf("PLA"), emptyList())
+        assertEquals("", r.variant)
+        assertTrue(colorKey("black") in r.colors)
+        assertEquals("CF", readLabel("PLA Carbon", emptyList(), listOf("PLA"), emptyList()).variant)
+    }
+
+    @Test fun `multi word known color matches as a phrase`() {
+        val r = readLabel("PLA Sky Blue", emptyList(), listOf("PLA"), listOf("Sky Blue"))
+        assertEquals(setOf(colorKey("Sky Blue")), r.colors)
     }
 }
