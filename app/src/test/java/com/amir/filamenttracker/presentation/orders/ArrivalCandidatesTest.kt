@@ -35,4 +35,18 @@ class ArrivalCandidatesTest {
         val spools = listOf(spool(10, 1, 7), spool(11, 2, 7), spool(12, 1, 8))
         assertEquals(listOf(11L, 12L), arrivalCandidates(spools, orders).map { it.spoolId })
     }
+
+    @Test
+    fun `equal orderedAt falls back to order id`() {
+        val orders = listOf(order(5, 100), order(2, 100))
+        val spools = listOf(spool(10, 5, 7), spool(11, 2, 7))
+        assertEquals(listOf(11L), arrivalCandidates(spools, orders).map { it.spoolId })
+    }
+
+    @Test
+    fun `candidates are ordered oldest order first across products`() {
+        val orders = listOf(order(1, 300), order(2, 100), order(3, 200))
+        val spools = listOf(spool(10, 1, 1), spool(11, 2, 2), spool(12, 3, 3))
+        assertEquals(listOf(11L, 12L, 10L), arrivalCandidates(spools, orders).map { it.spoolId })
+    }
 }
