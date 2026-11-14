@@ -82,4 +82,11 @@ class LabelReadingTest {
         val r = readLabel("PLA Sky Blue", emptyList(), listOf("PLA"), listOf("Sky Blue"))
         assertEquals(setOf(colorKey("Sky Blue")), r.colors)
     }
+
+    @Test fun `material codes with a digit keep their terms`() {
+        listOf("PA6-CF Black", "PA12-CF Black").forEach {
+            assertEquals("CF", readLabel(it, emptyList(), listOf("PA", "PLA"), emptyList()).variant)
+        }
+        assertEquals("", readLabel("PLA HS-1216 TRI-0438 Black", emptyList(), listOf("PA", "PLA"), emptyList()).variant)
+    }
 }
