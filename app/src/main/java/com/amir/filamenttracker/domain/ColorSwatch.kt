@@ -32,6 +32,18 @@ private val paletteByName: Map<String, String> = mapOf(
     "ירוק" to "#2E7D32", "green" to "#2E7D32",
 )
 
+/**
+ * One key per color, whatever its language or case: "שחור", "black" and "Black" share a key. A name
+ * that is not in the palette keeps its own text, trimmed and lower-cased.
+ */
+fun colorKey(name: String): String {
+    val key = name.trim().lowercase()
+    return paletteByName[key] ?: key
+}
+
+/** The keys of every palette color. */
+internal val paletteColorKeys: Set<String> = paletteByName.values.toSet()
+
 private val clearNames = setOf("שקוף", "clear", "transparent")
 private val multiNames = setOf("מולטיקולור", "multicolor", "rainbow")
 
