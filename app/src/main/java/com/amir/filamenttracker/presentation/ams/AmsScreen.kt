@@ -151,7 +151,11 @@ private fun SlotSheet(
             }
         }
         item {
-            OutlinedButton(onClick = onScan, modifier = Modifier.padding(horizontal = 16.dp)) { Text("סרוק מדבקה") }
+            OutlinedButton(
+                onClick = onScan,
+                enabled = scan != ScanUiState.Reading,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { Text("סרוק מדבקה") }
         }
         item {
             when (scan) {

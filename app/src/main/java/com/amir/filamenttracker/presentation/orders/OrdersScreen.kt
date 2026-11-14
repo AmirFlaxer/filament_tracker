@@ -76,7 +76,7 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
             val s = sections ?: return@LazyColumn
             item(key = "scan-shipment") {
-                OutlinedButton(onClick = startCapture, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                OutlinedButton(onClick = startCapture, enabled = scan != ScanUiState.Reading, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text("סרוק משלוח")
                 }
             }
@@ -126,8 +126,10 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
                         Text("קורא את המדבקה...")
                     }
                     is ScanUiState.Result -> when (val match = state.match) {
-                        is ScanMatch.Found -> FoundCard(
-                            match = match,
+                        // An ordered spool can carry the generic brand: shown as an unconfirmed match, with no retag here.
+                        is ScanMatch.Found, is ScanMatch.GenericSuggestion -> FoundCard(
+                            match = (match as? ScanMatch.GenericSuggestion)
+                                ?.let { ScanMatch.Found(it.spools, false, it.labelBrand) } ?: (match as ScanMatch.Found),
                             actionLabel = "הגיע",
                             subtitle = { spool ->
                                 orderById[spool.orderId]?.let { "${it.vendor} ${it.orderNumber.orEmpty()}".trim() } ?: ""
@@ -137,8 +139,7 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
                         )
                         is ScanMatch.KnownProductNoSpool ->
                             ScanMessage("זוהה: ${state.productTitle ?: "מוצר"}, אבל אין סליל שלו במשלוח ממתין")
-                        // A generic suggestion cannot happen here (ordered spools have a maker); treat it as no match.
-                        is ScanMatch.GenericSuggestion, ScanMatch.None -> ScanMessage("לא נמצאה התאמה")
+                        ScanMatch.None -> ScanMessage("לא נמצאה התאמה")
                     }
                 }
             }
