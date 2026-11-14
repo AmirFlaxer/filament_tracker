@@ -8,6 +8,7 @@ import com.amir.filamenttracker.data.db.AppDatabase
 import com.amir.filamenttracker.data.db.MIGRATION_1_2
 import com.amir.filamenttracker.data.db.MIGRATION_2_3
 import com.amir.filamenttracker.data.db.MIGRATION_3_4
+import com.amir.filamenttracker.data.db.MIGRATION_4_5
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -152,5 +153,21 @@ class MigrationTest {
     fun `migration of an empty database validates`() {
         helper.createDatabase("migration-empty.db", 1).close()
         helper.runMigrationsAndValidate("migration-empty.db", 2, true, MIGRATION_1_2).close()
+    }
+
+    @Test
+    fun `migration 4 to 5 adds an empty barcode table and keeps every row`() {
+        val v4 = helper.createDatabase("migration-4-5.db", 4)
+        v4.execSQL("INSERT INTO materials (id, name, family, variant, finish, archived) VALUES (1,'PLA','PLA','','',0)")
+        v4.execSQL("INSERT INTO colors (id, name, hex, archived) VALUES (10,'שחור',NULL,0)")
+        v4.execSQL("INSERT INTO products (id, brand, materialId, colorId, weightGrams, note, archived) VALUES (1,'A',1,10,1000,'',0)")
+        v4.execSQL("INSERT INTO spools (id, productId, orderId, status, amsSlot) VALUES (1,1,NULL,'SEALED',NULL)")
+        v4.close()
+
+        val db = helper.runMigrationsAndValidate("migration-4-5.db", 5, true, MIGRATION_4_5)
+
+        assertEquals(0, db.count("product_barcodes"))
+        assertEquals(1, db.count("products"))
+        assertEquals(1, db.count("spools"))
     }
 }

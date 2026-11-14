@@ -41,6 +41,15 @@ interface CatalogDao {
     )
     suspend fun materialByParts(family: String, variant: String, finish: String): MaterialEntity?
 
+    @Query(
+        "SELECT * FROM products WHERE brand = :brand COLLATE NOCASE AND materialId = :materialId " +
+            "AND colorId = :colorId AND weightGrams = :weightGrams AND archived = 0 ORDER BY id LIMIT 1",
+    )
+    suspend fun productByParts(brand: String, materialId: Long, colorId: Long, weightGrams: Int): ProductEntity?
+
+    @Query("SELECT * FROM products WHERE id = :id")
+    suspend fun product(id: Long): ProductEntity?
+
     @Query("SELECT * FROM materials WHERE id = :id")
     suspend fun material(id: Long): MaterialEntity?
 

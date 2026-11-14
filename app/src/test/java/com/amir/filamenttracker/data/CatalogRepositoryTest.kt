@@ -302,4 +302,15 @@ class CatalogRepositoryTest {
         assertEquals(RemoveResult.ARCHIVED, repo.removeProduct(archived))
         assertEquals(listOf("Bambu", "Elegoo", "Sunlu"), repo.brands.first())
     }
+
+    @Test
+    fun `barcode remembered and overwritten`() = runTest {
+        val a = repo.createProduct("XZN", "PLA", "", "זהב", "", 1000, "")
+        val b = repo.createProduct("Sunlu", "PLA", "", "זהב", "", 1000, "")
+        repo.rememberBarcode("123", a)
+        assertEquals(a, repo.productForBarcode("123"))
+        repo.rememberBarcode("123", b)
+        assertEquals(b, repo.productForBarcode("123"))
+        assertEquals(null, repo.productForBarcode("999"))
+    }
 }
