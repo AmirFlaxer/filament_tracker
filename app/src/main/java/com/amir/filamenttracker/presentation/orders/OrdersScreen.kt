@@ -11,6 +11,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.Alignment
+import com.amir.filamenttracker.presentation.scan.FoundCard
+import com.amir.filamenttracker.presentation.scan.ScanMatch
+import com.amir.filamenttracker.presentation.scan.ScanMessage
+import com.amir.filamenttracker.presentation.scan.ScanUiState
+import com.amir.filamenttracker.presentation.scan.rememberLabelCapture
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -35,12 +51,16 @@ import com.amir.filamenttracker.presentation.common.NoInsets
 import com.amir.filamenttracker.presentation.common.SectionHeader
 import com.amir.filamenttracker.presentation.common.formatDate
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: OrdersViewModel = hiltViewModel()) {
     val sections by vm.sections.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
     var showArchive by rememberSaveable { mutableStateOf(false) }
+    val scan by vm.scan.collectAsStateWithLifecycle()
+    val orderById by vm.orderById.collectAsStateWithLifecycle()
+    val startCapture = rememberLabelCapture(vm::onPhoto)
 
     Scaffold(
         contentWindowInsets = NoInsets,
@@ -55,6 +75,11 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
             val s = sections ?: return@LazyColumn
+            item(key = "scan-shipment") {
+                OutlinedButton(onClick = startCapture, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text("סרוק משלוח")
+                }
+            }
             if (s.waiting.isEmpty() && s.arrived.isEmpty() && s.archived.isEmpty()) {
                 item { Text("אין עדיין הזמנות.", Modifier.padding(16.dp)) }
             }
@@ -78,6 +103,42 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
                 if (showArchive) {
                     orderSection(null, s.archived, onOrderClick) { order ->
                         TextButton(onClick = { vm.restore(order.id) }) { Text("החזר") }
+                    }
+                }
+            }
+        }
+    }
+
+    if (scan != ScanUiState.Idle) {
+        ModalBottomSheet(
+            onDismissRequest = vm::clearScan,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                when (val state = scan) {
+                    ScanUiState.Idle -> {}
+                    ScanUiState.Reading -> Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text("קורא את המדבקה...")
+                    }
+                    is ScanUiState.Result -> when (val match = state.match) {
+                        is ScanMatch.Found -> FoundCard(
+                            match = match,
+                            actionLabel = "הגיע",
+                            subtitle = { spool ->
+                                orderById[spool.orderId]?.let { "${it.vendor} ${it.orderNumber.orEmpty()}".trim() } ?: ""
+                            },
+                            onPick = { vm.confirmArrived(it.spoolId) },
+                            onDismiss = vm::clearScan,
+                        )
+                        is ScanMatch.KnownProductNoSpool ->
+                            ScanMessage("זוהה: ${state.productTitle ?: "מוצר"}, אבל אין סליל שלו במשלוח ממתין")
+                        // A generic suggestion cannot happen here (ordered spools have a maker); treat it as no match.
+                        is ScanMatch.GenericSuggestion, ScanMatch.None -> ScanMessage("לא נמצאה התאמה")
                     }
                 }
             }
