@@ -10,7 +10,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.draw.alpha
+import com.amir.filamenttracker.presentation.scan.FoundCard
+import com.amir.filamenttracker.presentation.scan.GenericSuggestionCard
+import com.amir.filamenttracker.presentation.scan.ScanMatch
+import com.amir.filamenttracker.presentation.scan.ScanMessage
+import com.amir.filamenttracker.presentation.scan.ScanUiState
+import com.amir.filamenttracker.presentation.scan.rememberLabelCapture
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +59,8 @@ fun AmsScreen(onSpoolClick: (Long) -> Unit, vm: AmsViewModel = hiltViewModel()) 
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
     var openSlot by rememberSaveable { mutableStateOf<Int?>(null) }
+    val scan by vm.scan.collectAsStateWithLifecycle()
+    val startCapture = rememberLabelCapture(vm::onPhoto)
 
     Scaffold(contentWindowInsets = NoInsets, snackbarHost = { SnackbarHost(host) }) { padding ->
         Column(
@@ -63,11 +75,16 @@ fun AmsScreen(onSpoolClick: (Long) -> Unit, vm: AmsViewModel = hiltViewModel()) 
 
     openSlot?.let { slot ->
         val spool = state.slots[slot - 1]
-        ModalBottomSheet(onDismissRequest = { openSlot = null }) {
+        ModalBottomSheet(onDismissRequest = { openSlot = null; vm.clearScan() }) {
             SlotSheet(
                 slot = slot,
                 spool = spool,
                 candidates = state.candidates,
+                scan = scan,
+                onScan = startCapture,
+                onClearScan = vm::clearScan,
+                onConfirmLoad = { vm.confirmLoad(it, slot); openSlot = null },
+                onRetagAndLoad = { id, brand -> vm.retagAndLoad(id, brand, slot); openSlot = null },
                 onLoad = { vm.load(it, slot); openSlot = null },
                 onUnload = { spool?.let { vm.unload(it.spoolId) }; openSlot = null },
                 onFinish = { spool?.let { vm.finish(it.spoolId) }; openSlot = null },
@@ -101,6 +118,11 @@ private fun SlotSheet(
     slot: Int,
     spool: SpoolRow?,
     candidates: List<SpoolRow>,
+    scan: ScanUiState,
+    onScan: () -> Unit,
+    onClearScan: () -> Unit,
+    onConfirmLoad: (Long) -> Unit,
+    onRetagAndLoad: (Long, String) -> Unit,
     onLoad: (Long) -> Unit,
     onUnload: () -> Unit,
     onFinish: () -> Unit,
@@ -123,14 +145,52 @@ private fun SlotSheet(
                 }
             }
         }
-        item { SectionHeader(if (spool == null) "טען לחריץ" else "החלף ב:") }
+        item {
+            OutlinedButton(onClick = onScan, modifier = Modifier.padding(horizontal = 16.dp)) { Text("סרוק מדבקה") }
+        }
+        item {
+            when (scan) {
+                ScanUiState.Idle -> {}
+                ScanUiState.Reading -> Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text("קורא את המדבקה...")
+                }
+                is ScanUiState.Result -> when (val match = scan.match) {
+                    is ScanMatch.Found -> FoundCard(
+                        match = match,
+                        actionLabel = "טען",
+                        subtitle = { it.status.label() },
+                        onPick = { onConfirmLoad(it.spoolId) },
+                        onDismiss = onClearScan,
+                    )
+                    is ScanMatch.GenericSuggestion -> GenericSuggestionCard(
+                        match = match,
+                        slot = slot,
+                        onRetagAndLoad = onRetagAndLoad,
+                        onLoadOnly = onConfirmLoad,
+                        onDismiss = onClearScan,
+                    )
+                    is ScanMatch.KnownProductNoSpool ->
+                        ScanMessage("זוהה: ${scan.productTitle ?: "מוצר"}, אבל אין סליל שלו זמין לטעינה")
+                    ScanMatch.None -> ScanMessage("לא נמצאה התאמה")
+                }
+            }
+        }
+        val dim = if (scan is ScanUiState.Result &&
+            (scan.match is ScanMatch.Found || scan.match is ScanMatch.GenericSuggestion)
+        ) 0.45f else 1f
+        item { Box(Modifier.alpha(dim)) { SectionHeader(if (spool == null) "טען לחריץ" else "החלף ב:") } }
         if (candidates.isEmpty()) item { Text("אין סלילים זמינים", Modifier.padding(16.dp)) }
         items(candidates, key = { it.spoolId }) { c ->
             ListItem(
                 headlineContent = { Text(c.title) },
                 supportingContent = { Text(c.status.label()) },
                 leadingContent = { ColorDot(resolveColorHex(c.colorName, c.colorHex)) },
-                modifier = Modifier.clickable { onLoad(c.spoolId) },
+                modifier = Modifier.alpha(dim).clickable { onLoad(c.spoolId) },
             )
         }
     }
