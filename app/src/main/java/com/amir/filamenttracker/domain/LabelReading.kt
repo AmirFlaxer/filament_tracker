@@ -15,6 +15,8 @@ fun isGenericBrand(brand: String): Boolean = brand.trim().lowercase().let { it.i
 private val CLEAR_AFTER_COLOR = Regex("""color\s*:\s*clear""", RegexOption.IGNORE_CASE)
 private val CODE_WITH_DIGIT = Regex("""[\p{L}-]*\d[\p{L}\p{N}-]*""")
 private val CARBON_WORD = Regex("""carbon\s+(\p{L}+)""", RegexOption.IGNORE_CASE)
+private val NOT_TERM_CHAR = Regex("""[^\p{L}\p{N}+\s-]""")
+private val BRAND_STOPLIST = setOf("FILAMENT", "PREMIUM", "PLASTIC", "SPOOL", "NEW")
 private val LATIN_LINE = Regex("^[A-Za-z]{2,20}$")
 
 private fun wordsOf(text: String): List<String> =
@@ -42,6 +44,7 @@ fun readLabel(text: String, knownBrands: List<String>, knownFamilies: List<Strin
 
     // A code with a digit ("HS-1216") is a batch number, never a term. "Carbon" before a color word is a color name.
     val termText = text.replace(CLEAR_AFTER_COLOR, "color:")
+        .replace(NOT_TERM_CHAR, " ")
         .replace(CODE_WITH_DIGIT) { m -> if (isMaterialCode(m.value, knownFamilies)) m.value else " " }
         .replace(CARBON_WORD) { m -> if (colorKey(m.groupValues[1]) in colorKeys) m.groupValues[1] else m.value }
     val variantSeed = (listOfNotNull("+".takeIf { plus }) + VARIANT_TERMS.filter { hasTerm(termText, it) }).joinToString(" ")
@@ -60,19 +63,32 @@ fun readLabel(text: String, knownBrands: List<String>, knownFamilies: List<Strin
     }
     colors += wordsOf(rest).map { colorKey(it) }.filter { it in colorKeys }
 
-    val brand = findKnownBrand(text, knownBrands) ?: firstLineBrand(text, knownFamilies, colorKeys)
+    val known = findKnownBrand(text, knownBrands)
+    // Two different known brands on one label ("Compatible with Bambu Lab AMS") name no single maker.
+    val brand = if (known.ambiguous) null else known.brand ?: firstLineBrand(text, knownFamilies, colorKeys)
     return LabelReading(brand, family, parts.variant, parts.finish, colors)
 }
 
-private fun findKnownBrand(text: String, knownBrands: List<String>): String? =
-    knownBrands.filter { it.isNotBlank() }.sortedByDescending { it.length }.firstOrNull { brand ->
-        Regex("""(?<![\p{L}\p{N}])""" + Regex.escape(brand.trim()) + """(?![\p{L}\p{N}])""",RegexOption.IGNORE_CASE).containsMatchIn(text)
+private class KnownBrand(val brand: String?, val ambiguous: Boolean)
+
+/** The longest known brand; overlapping matches ("Bambu" in "Bambu Lab") keep the longest, two separate brands are ambiguous. */
+private fun findKnownBrand(text: String, knownBrands: List<String>): KnownBrand {
+    val found = mutableListOf<Pair<String, IntRange>>()
+    for (brand in knownBrands.filter { it.isNotBlank() }.map { it.trim() }.distinctBy { it.lowercase() }.sortedByDescending { it.length }) {
+        val pattern = Regex("""(?<![\p{L}\p{N}])""" + Regex.escape(brand) + """(?![\p{L}\p{N}])""", RegexOption.IGNORE_CASE)
+        pattern.findAll(text).forEach { m ->
+            if (found.none { (_, r) -> m.range.first <= r.last && r.first <= m.range.last }) found += brand to m.range
+        }
     }
+    val distinct = found.map { it.first.lowercase() }.distinct()
+    return KnownBrand(found.firstOrNull()?.first, distinct.size >= 2)
+}
 
 private fun firstLineBrand(text: String, knownFamilies: List<String>, colorKeys: Set<String>): String? {
     val line = text.lines().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: return null
     val isCandidate = LATIN_LINE.matches(line) &&
         knownFamilies.none { it.equals(line, ignoreCase = true) } &&
+        line.uppercase() !in BRAND_STOPLIST &&
         !isKnownTermsOnly(line) &&
         colorKey(line) !in colorKeys
     return line.takeIf { isCandidate }

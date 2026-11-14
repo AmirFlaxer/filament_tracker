@@ -89,4 +89,25 @@ class LabelReadingTest {
         }
         assertEquals("", readLabel("PLA HS-1216 TRI-0438 Black", emptyList(), listOf("PA", "PLA"), emptyList()).variant)
     }
+
+    private fun read(text: String, brands: List<String> = emptyList()) =
+        readLabel(text, brands, listOf("PLA", "PETG"), emptyList())
+
+    @Test fun `finish next to punctuation is recognized`() {
+        assertEquals("Matte", read("PLA Matte, White").finish)
+        assertEquals("Silk", read("PLA (Silk) Gold").finish)
+        assertEquals("Silk", read("PLA/Silk Gold").finish)
+    }
+
+    @Test fun `two separate known brands give no brand`() {
+        assertEquals(null, read("SUNLU\nPETG Black\nCompatible with Bambu Lab AMS", listOf("SUNLU", "Bambu Lab")).brand)
+    }
+
+    @Test fun `overlapping known brands keep the longest`() {
+        assertEquals("Bambu Lab", read("Bambu Lab PLA Black", listOf("Bambu", "Bambu Lab")).brand)
+    }
+
+    @Test fun `a generic first line word is not a brand`() {
+        assertEquals(null, read("FILAMENT\nPLA Black").brand)
+    }
 }

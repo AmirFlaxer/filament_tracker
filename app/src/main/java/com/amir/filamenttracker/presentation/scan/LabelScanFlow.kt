@@ -40,7 +40,7 @@ class LabelScanFlow(
     /** Reads the photo behind [uri] and shows the match; null (the user cancelled) goes back to idle. */
     fun onPhoto(uri: Uri?, candidates: suspend () -> List<SpoolRow>) {
         if (uri == null) {
-            _state.value = ScanUiState.Idle
+            clear()
             return
         }
         job?.cancel()
@@ -50,7 +50,8 @@ class LabelScanFlow(
                 analyze(uri, candidates())
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Includes OutOfMemoryError from a huge photo: it is a failed read, not a crash.
                 ScanUiState.Result(ScanMatch.None, null)
             } finally {
                 // The photo is the user's data: it does not stay in the cache.

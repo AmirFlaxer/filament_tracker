@@ -123,7 +123,7 @@ class InventoryRepository @Inject constructor(
      * A correction, so no event is logged. Returns the new product id.
      */
     suspend fun retagSpool(spoolId: Long, brand: String): Long = db.withTransaction {
-        val clean = brand.trim().replace(Regex("""\s+"""), " ")
+        val clean = brand.trim().replace(Regex("[\\s\\p{Z}]+"), " ")
         if (clean.isEmpty()) throw SpoolRuleException("יש להזין יצרן")
         val catalogDao = db.catalogDao()
         val spool = spoolDao.spool(spoolId) ?: throw SpoolRuleException("הסליל לא נמצא")

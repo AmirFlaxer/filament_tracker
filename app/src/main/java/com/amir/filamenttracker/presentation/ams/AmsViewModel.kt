@@ -15,6 +15,7 @@ import com.amir.filamenttracker.presentation.scan.ScanUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -35,14 +36,7 @@ class AmsViewModel @Inject constructor(
             slots = (1..SpoolPlanner.SLOT_COUNT).map { slot ->
                 spools.firstOrNull { it.status == SpoolStatus.IN_USE && it.amsSlot == slot }
             },
-            // Open spools first: they are the ones that come back to the printer.
-            candidates = spools
-                .filter { it.status == SpoolStatus.OPEN_STORED || it.status == SpoolStatus.SEALED }
-                .sortedWith(
-                    compareBy<SpoolRow> { if (it.status == SpoolStatus.OPEN_STORED) 0 else 1 }
-                        .thenBy { it.materialName }
-                        .thenBy { it.colorName },
-                ),
+            candidates = slotCandidates(spools),
         )
     }.asState(AmsUiState())
 
@@ -53,7 +47,7 @@ class AmsViewModel @Inject constructor(
     fun unload(spoolId: Long) = launchAction { inventory.unload(spoolId); "הסליל הוצא לאחסון" }
     fun finish(spoolId: Long) = launchAction { inventory.finish(spoolId); "הסליל סומן שהסתיים" }
 
-    fun onPhoto(uri: Uri?) = scanFlow.onPhoto(uri) { state.value.candidates }
+    fun onPhoto(uri: Uri?) = scanFlow.onPhoto(uri) { slotCandidates(inventory.spools.first()) }
 
     fun clearScan() = scanFlow.clear()
 
@@ -80,3 +74,12 @@ class AmsViewModel @Inject constructor(
         }
     }
 }
+
+/** The spools that can go into a slot: open ones first (they are the ones that come back to the printer), then sealed. */
+fun slotCandidates(spools: List<SpoolRow>): List<SpoolRow> = spools
+    .filter { it.status == SpoolStatus.OPEN_STORED || it.status == SpoolStatus.SEALED }
+    .sortedWith(
+        compareBy<SpoolRow> { if (it.status == SpoolStatus.OPEN_STORED) 0 else 1 }
+            .thenBy { it.materialName }
+            .thenBy { it.colorName },
+    )

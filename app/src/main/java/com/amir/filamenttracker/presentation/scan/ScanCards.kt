@@ -21,12 +21,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.data.db.title
+import com.amir.filamenttracker.domain.isGenericBrand
 import com.amir.filamenttracker.domain.lineName
 import com.amir.filamenttracker.domain.resolveColorHex
 import com.amir.filamenttracker.presentation.common.ColorDot
@@ -91,7 +93,7 @@ fun GenericSuggestionCard(
     onLoadOnly: (spoolId: Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var brand by remember { mutableStateOf(match.labelBrand) }
+    var brand by rememberSaveable { mutableStateOf(match.labelBrand) }
     var selectedId by remember { mutableLongStateOf(match.spools.first().spoolId) }
     val chosen = match.spools.firstOrNull { it.spoolId == selectedId } ?: match.spools.first()
     ScanCard {
@@ -116,7 +118,10 @@ fun GenericSuggestionCard(
         )
         Text("לעדכן את הסליל הזה ל-$brand ולטעון לחריץ $slot?")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { onRetagAndLoad(chosen.spoolId, brand) }) { Text("עדכן וטען") }
+            OutlinedButton(
+                onClick = { onRetagAndLoad(chosen.spoolId, brand) },
+                enabled = brand.isNotBlank() && !isGenericBrand(brand),
+            ) { Text("עדכן וטען") }
             OutlinedButton(onClick = { onLoadOnly(chosen.spoolId) }) { Text("טען בלי לעדכן") }
         }
         TextButton(onClick = onDismiss) { Text("לא זה") }
