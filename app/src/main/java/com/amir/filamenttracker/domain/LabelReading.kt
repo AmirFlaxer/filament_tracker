@@ -42,7 +42,7 @@ fun readLabel(text: String, knownBrands: List<String>, knownFamilies: List<Strin
 
     // A code with a digit ("HS-1216") is a batch number, never a term. "Carbon" before a color word is a color name.
     val termText = text.replace(CLEAR_AFTER_COLOR, "color:")
-        .replace(CODE_WITH_DIGIT, " ")
+        .replace(CODE_WITH_DIGIT) { m -> if (isMaterialCode(m.value, knownFamilies)) m.value else " " }
         .replace(CARBON_WORD) { m -> if (colorKey(m.groupValues[1]) in colorKeys) m.groupValues[1] else m.value }
     val variantSeed = (listOfNotNull("+".takeIf { plus }) + VARIANT_TERMS.filter { hasTerm(termText, it) }).joinToString(" ")
     val finishSeed = (COMMON_FINISH_TERMS + MORE_FINISH_TERMS).filter { hasTerm(termText, it) }.joinToString(" ")
@@ -76,4 +76,10 @@ private fun firstLineBrand(text: String, knownFamilies: List<String>, colorKeys:
         !isKnownTermsOnly(line) &&
         colorKey(line) !in colorKeys
     return line.takeIf { isCandidate }
+}
+
+/** A code like "PA6-CF" or "PA12": its first hyphen segment is a known family, then optional digits. */
+private fun isMaterialCode(token: String, knownFamilies: List<String>): Boolean {
+    val head = token.substringBefore('-').trimEnd { it.isDigit() }
+    return head.isNotEmpty() && knownFamilies.any { it.equals(head, ignoreCase = true) }
 }
