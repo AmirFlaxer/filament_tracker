@@ -9,6 +9,7 @@ import com.amir.filamenttracker.data.db.SpoolEventEntity
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.data.db.toDomain
 import com.amir.filamenttracker.domain.SpoolPlanner
+import com.amir.filamenttracker.domain.isGenericBrand
 import com.amir.filamenttracker.domain.SpoolRuleException
 import com.amir.filamenttracker.domain.UndoNotPossibleException
 import com.amir.filamenttracker.domain.model.Spool
@@ -114,6 +115,24 @@ class InventoryRepository @Inject constructor(
             throw SpoolRuleException("אפשר להחליף מוצר רק לסליל שעדיין לא הגיע")
         }
         spoolDao.updateProduct(spoolId, productId)
+    }
+
+    /**
+     * A spool registered as generic whose real brand was read from its label. Moves only this spool to
+     * the product with the same material, color and weight under [brand] (created if missing).
+     * A correction, so no event is logged. Returns the new product id.
+     */
+    suspend fun retagSpool(spoolId: Long, brand: String): Long = db.withTransaction {
+        val clean = brand.trim().replace(Regex("""\s+"""), " ")
+        if (clean.isEmpty()) throw SpoolRuleException("יש להזין יצרן")
+        val catalogDao = db.catalogDao()
+        val spool = spoolDao.spool(spoolId) ?: throw SpoolRuleException("הסליל לא נמצא")
+        val current = catalogDao.product(spool.productId) ?: throw SpoolRuleException("הסליל לא נמצא")
+        if (!isGenericBrand(current.brand)) throw SpoolRuleException("אפשר לעדכן רק סליל גנרי")
+        val targetId = catalogDao.productByParts(clean, current.materialId, current.colorId, current.weightGrams)?.id
+            ?: catalogDao.insertProduct(current.copy(id = 0, brand = clean, note = "", archived = false))
+        spoolDao.updateProduct(spoolId, targetId)
+        targetId
     }
 
     suspend fun markArrived(spoolIds: Collection<Long>) = db.withTransaction {

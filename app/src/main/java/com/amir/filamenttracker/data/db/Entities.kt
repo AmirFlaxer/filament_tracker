@@ -45,6 +45,19 @@ data class ProductEntity(
     val archived: Boolean = false,
 )
 
+@Entity(
+    tableName = "product_barcodes",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProductEntity::class, parentColumns = ["id"], childColumns = ["productId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("productId")],
+)
+/** A barcode remembered for a product, so the next scan of the same code finds it. One product per code. */
+data class ProductBarcodeEntity(@PrimaryKey val code: String, val productId: Long)
+
 @Entity(tableName = "orders")
 data class OrderEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

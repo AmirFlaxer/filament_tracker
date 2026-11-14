@@ -116,3 +116,15 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_targets_colorId` ON `stock_targets` (`colorId`)")
     }
 }
+
+/** Version 5: barcodes remembered for products. The table starts empty; every existing row is untouched. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // This must match the product_barcodes table in schemas/.../5.json exactly.
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `product_barcodes` (`code` TEXT NOT NULL, `productId` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`code`), FOREIGN KEY(`productId`) REFERENCES `products`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_barcodes_productId` ON `product_barcodes` (`productId`)")
+    }
+}

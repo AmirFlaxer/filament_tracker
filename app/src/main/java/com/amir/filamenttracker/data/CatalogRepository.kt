@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.amir.filamenttracker.data.db.AppDatabase
 import com.amir.filamenttracker.data.db.ColorEntity
 import com.amir.filamenttracker.data.db.MaterialEntity
+import com.amir.filamenttracker.data.db.ProductBarcodeEntity
 import com.amir.filamenttracker.data.db.ProductEntity
 import com.amir.filamenttracker.data.db.ProductRow
 import com.amir.filamenttracker.data.db.StockTargetEntity
@@ -21,6 +22,7 @@ enum class RemoveResult { DELETED, ARCHIVED }
 class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     private val dao = db.catalogDao()
     private val stockDao = db.stockDao()
+    private val barcodeDao = db.barcodeDao()
 
     val materials: Flow<List<MaterialEntity>> = dao.activeMaterials()
     val colors: Flow<List<ColorEntity>> = dao.activeColors()
@@ -86,6 +88,11 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
             ),
         )
     }
+
+    suspend fun productForBarcode(code: String): Long? = barcodeDao.productFor(code)
+
+    /** The latest save wins: a code points at one product. */
+    suspend fun rememberBarcode(code: String, productId: Long) = barcodeDao.save(ProductBarcodeEntity(code, productId))
 
     suspend fun updateMaterial(id: Long, family: String, variant: String, finish: String = "") = db.withTransaction {
         val cleanFamily = cleanName(family, what = "חומר ראשי")

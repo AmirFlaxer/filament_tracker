@@ -336,4 +336,40 @@ class InventoryRepositoryTest {
         assertEquals(OPEN_STORED, spool(first).status)
         assertEquals(1, spool(second).amsSlot)
     }
+
+    private suspend fun brandOf(spoolId: Long) = db.spoolDao().spoolRow(spoolId).first()!!
+
+    @Test
+    fun `retag generic spool moves only that spool`() = runTest {
+        val generic = CatalogRepository(db).createProduct("גנרי", "PLA", "", "זהב", "", 1000, "")
+        val (first, second) = repo.addExisting(generic, 2, SEALED, slot = null)
+        val newId = repo.retagSpool(first, "XZN")
+        val row = brandOf(first)
+        assertEquals(newId, row.productId)
+        assertEquals("XZN", row.brand)
+        assertEquals("PLA", row.materialFamily)
+        assertEquals(generic, brandOf(second).productId)
+        assertEquals("גנרי", brandOf(second).brand)
+    }
+
+    @Test
+    fun `retag reuses existing product`() = runTest {
+        val catalog = CatalogRepository(db)
+        val generic = catalog.createProduct("גנרי", "PLA", "", "זהב", "", 1000, "")
+        val existing = catalog.createProduct("XZN", "PLA", "", "זהב", "", 1000, "")
+        val before = db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM products").use { it.moveToFirst(); it.getInt(0) }
+        val (first) = repo.addExisting(generic, 1, SEALED, slot = null)
+        assertEquals(existing, repo.retagSpool(first, " xzn "))
+        val after = db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM products").use { it.moveToFirst(); it.getInt(0) }
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun `retag rejects non generic`() = runTest {
+        val sunlu = CatalogRepository(db).createProduct("Sunlu", "PLA", "", "זהב", "", 1000, "")
+        val (first) = repo.addExisting(sunlu, 1, SEALED, slot = null)
+        val e = runCatching { repo.retagSpool(first, "XZN") }.exceptionOrNull()
+        assertTrue(e is SpoolRuleException)
+        assertEquals("אפשר לעדכן רק סליל גנרי", e!!.message)
+    }
 }

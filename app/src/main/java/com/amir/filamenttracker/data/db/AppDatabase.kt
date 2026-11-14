@@ -8,9 +8,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         MaterialEntity::class, ColorEntity::class, ProductEntity::class, OrderEntity::class,
-        SpoolEntity::class, SpoolEventEntity::class, StockTargetEntity::class,
+        SpoolEntity::class, SpoolEventEntity::class, StockTargetEntity::class, ProductBarcodeEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -19,6 +19,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun spoolDao(): SpoolDao
     abstract fun orderDao(): OrderDao
     abstract fun stockDao(): StockDao
+    abstract fun barcodeDao(): BarcodeDao
 
     companion object {
         const val NAME = "filament_tracker.db"
