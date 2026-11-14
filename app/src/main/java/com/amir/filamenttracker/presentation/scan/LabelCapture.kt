@@ -12,8 +12,10 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /** The one fixed file the camera writes to; the same Uri is rebuilt after the activity is recreated. */
+fun labelFile(context: Context): File = File(context.cacheDir, "scans").apply { mkdirs() }.resolve("label.jpg")
+
 fun labelUri(context: Context): Uri {
-    val file = File(context.cacheDir, "scans").apply { mkdirs() }.resolve("label.jpg")
+    val file = labelFile(context)
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
 

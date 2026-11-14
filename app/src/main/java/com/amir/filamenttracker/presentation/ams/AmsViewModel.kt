@@ -15,18 +15,20 @@ import com.amir.filamenttracker.domain.readLabel
 import com.amir.filamenttracker.presentation.common.BaseViewModel
 import com.amir.filamenttracker.presentation.scan.ScanMatch
 import com.amir.filamenttracker.presentation.scan.ScanUiState
+import com.amir.filamenttracker.presentation.scan.labelFile
 import com.amir.filamenttracker.presentation.scan.matchScan
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import javax.inject.Inject
 
 data class AmsUiState(
@@ -59,6 +61,7 @@ class AmsViewModel @Inject constructor(
 
     private val _scan = MutableStateFlow<ScanUiState>(ScanUiState.Idle)
     val scan: StateFlow<ScanUiState> = _scan
+    private var scanJob: Job? = null
 
     fun load(spoolId: Long, slot: Int) = launchAction { inventory.loadIntoSlot(spoolId, slot); null }
     fun unload(spoolId: Long) = launchAction { inventory.unload(spoolId); "הסליל הוצא לאחסון" }
@@ -70,8 +73,9 @@ class AmsViewModel @Inject constructor(
             _scan.value = ScanUiState.Idle
             return
         }
+        scanJob?.cancel()
         _scan.value = ScanUiState.Reading
-        viewModelScope.launch {
+        scanJob = viewModelScope.launch {
             _scan.value = try {
                 analyze(uri)
             } catch (e: CancellationException) {
@@ -80,7 +84,7 @@ class AmsViewModel @Inject constructor(
                 ScanUiState.Result(ScanMatch.None, null)
             } finally {
                 // The photo is the user's data: it does not stay in the cache.
-                withContext(Dispatchers.IO) { File(context.cacheDir, "scans/label.jpg").delete() }
+                withContext(NonCancellable + Dispatchers.IO) { labelFile(context).delete() }
             }
         }
     }
@@ -103,25 +107,33 @@ class AmsViewModel @Inject constructor(
     }
 
     fun clearScan() {
+        scanJob?.cancel()
         _scan.value = ScanUiState.Idle
     }
 
     /** Loads the spool, then remembers the scanned barcode (if any) for its product. */
-    fun confirmLoad(spoolId: Long, slot: Int) = launchAction {
+    fun confirmLoad(spoolId: Long, slot: Int) {
         val barcode = (scan.value as? ScanUiState.Result)?.barcode
-        val productId = state.value.candidates.firstOrNull { it.spoolId == spoolId }?.productId
-        inventory.loadIntoSlot(spoolId, slot)
-        if (barcode != null && productId != null) catalog.rememberBarcode(barcode, productId)
-        _scan.value = ScanUiState.Idle
-        null
+        val spool = state.value.candidates.firstOrNull { it.spoolId == spoolId }
+        clearScan()
+        launchAction {
+            inventory.loadIntoSlot(spoolId, slot)
+            // A code never goes onto a generic product: it names no maker.
+            if (barcode != null && spool != null && !isGenericBrand(spool.brand)) {
+                catalog.rememberBarcode(barcode, spool.productId)
+            }
+            null
+        }
     }
 
-    fun retagAndLoad(spoolId: Long, brand: String, slot: Int) = launchAction {
+    fun retagAndLoad(spoolId: Long, brand: String, slot: Int) {
         val barcode = (scan.value as? ScanUiState.Result)?.barcode
-        val productId = inventory.retagSpool(spoolId, brand)
-        inventory.loadIntoSlot(spoolId, slot)
-        if (barcode != null) catalog.rememberBarcode(barcode, productId)
-        _scan.value = ScanUiState.Idle
-        null
+        clearScan()
+        launchAction {
+            val productId = inventory.retagSpool(spoolId, brand)
+            inventory.loadIntoSlot(spoolId, slot)
+            if (barcode != null) catalog.rememberBarcode(barcode, productId)
+            null
+        }
     }
 }

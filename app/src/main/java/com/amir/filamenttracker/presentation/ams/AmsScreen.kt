@@ -25,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -75,7 +76,11 @@ fun AmsScreen(onSpoolClick: (Long) -> Unit, vm: AmsViewModel = hiltViewModel()) 
 
     openSlot?.let { slot ->
         val spool = state.slots[slot - 1]
-        ModalBottomSheet(onDismissRequest = { openSlot = null; vm.clearScan() }) {
+        val close = { openSlot = null; vm.clearScan() }
+        ModalBottomSheet(
+            onDismissRequest = close,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
             SlotSheet(
                 slot = slot,
                 spool = spool,
@@ -83,12 +88,12 @@ fun AmsScreen(onSpoolClick: (Long) -> Unit, vm: AmsViewModel = hiltViewModel()) 
                 scan = scan,
                 onScan = startCapture,
                 onClearScan = vm::clearScan,
-                onConfirmLoad = { vm.confirmLoad(it, slot); openSlot = null },
-                onRetagAndLoad = { id, brand -> vm.retagAndLoad(id, brand, slot); openSlot = null },
-                onLoad = { vm.load(it, slot); openSlot = null },
-                onUnload = { spool?.let { vm.unload(it.spoolId) }; openSlot = null },
-                onFinish = { spool?.let { vm.finish(it.spoolId) }; openSlot = null },
-                onDetails = { spool?.let { onSpoolClick(it.spoolId) }; openSlot = null },
+                onConfirmLoad = { vm.confirmLoad(it, slot); close() },
+                onRetagAndLoad = { id, brand -> vm.retagAndLoad(id, brand, slot); close() },
+                onLoad = { vm.load(it, slot); close() },
+                onUnload = { spool?.let { vm.unload(it.spoolId) }; close() },
+                onFinish = { spool?.let { vm.finish(it.spoolId) }; close() },
+                onDetails = { spool?.let { onSpoolClick(it.spoolId) }; close() },
             )
         }
     }

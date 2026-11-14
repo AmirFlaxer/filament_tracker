@@ -96,7 +96,7 @@ fun GenericSuggestionCard(
     val chosen = match.spools.firstOrNull { it.spoolId == selectedId } ?: match.spools.first()
     ScanCard {
         Text(
-            "המדבקה: ${match.labelBrand} ${lineName(chosen.materialFamily, chosen.materialFinish)}",
+            "המדבקה: ${match.labelBrand} ${lineName(chosen.materialFamily, chosen.materialFinish)} ${chosen.colorName}",
             style = MaterialTheme.typography.titleSmall,
         )
         Text("אין מוצר של ${match.labelBrand}, אבל יש סליל דומה:")
