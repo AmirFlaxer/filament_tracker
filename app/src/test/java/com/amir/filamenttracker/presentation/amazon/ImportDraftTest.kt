@@ -90,8 +90,24 @@ class ImportDraftTest {
     fun `panchroma becomes two new rows of two`() {
         val cards = buildCards(orders[0], emptyList(), lists)
         assertEquals(1, cards.size)
-        assertEquals(listOf(ImportRow("Earth Brown", 2, null), ImportRow("Wood Brown", 2, null)), cards[0].rows)
+        assertEquals(listOf(ImportRow("חום אדמה", 2, null), ImportRow("חום עץ", 2, null)), cards[0].rows)
         assertEquals(0, cards[0].colorsToMark)
+    }
+
+    @Test
+    fun `a color already in the catalog keeps the catalog name`() {
+        val hebrew = lists.copy(colors = listOf("שחור", "Earth Brown"))
+        val black = buildCards(order("SUNLU High Speed PETG Filament 1.75mm, Black, 1kg"), emptyList(), hebrew)[0]
+        assertEquals(listOf("שחור"), black.rows.map { it.colorName })
+        val panchroma = buildCards(orders[0], emptyList(), hebrew)[0]
+        assertEquals(listOf("Earth Brown", "חום עץ"), panchroma.rows.map { it.colorName })
+    }
+
+    @Test
+    fun `a product saved under the English name still matches`() {
+        val cards = buildCards(orders[0], listOf(product(color = "Earth Brown")), lists)
+        assertEquals("חום אדמה", cards[0].rows[0].colorName)
+        assertEquals(7L, cards[0].rows[0].productId)
     }
 
     @Test
@@ -121,7 +137,7 @@ class ImportDraftTest {
         val o = AmazonOrder(
             "x", LocalDate.of(2026, 1, 1), "s", listOf(AmazonItem(3, "ACME Silk PLA Dual Color Red/Gold 1kg")),
         )
-        assertEquals(listOf(ImportRow("Red / Gold", 3, null)), buildCards(o, emptyList(), lists)[0].rows)
+        assertEquals(listOf(ImportRow("אדום / זהב", 3, null)), buildCards(o, emptyList(), lists)[0].rows)
     }
 
     @Test

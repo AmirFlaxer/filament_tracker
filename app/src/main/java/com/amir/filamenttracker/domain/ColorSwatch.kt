@@ -30,6 +30,12 @@ private val paletteByName: Map<String, String> = mapOf(
     "זהב" to "#D4AF37", "gold" to "#D4AF37",
     "אפור" to "#808080", "gray" to "#808080", "grey" to "#808080",
     "ירוק" to "#2E7D32", "green" to "#2E7D32",
+    "חום" to "#795548", "brown" to "#795548",
+    "בז'" to "#D7C4A3", "beige" to "#D7C4A3",
+    "כסף" to "#C0C0C0", "silver" to "#C0C0C0",
+    "נחושת" to "#B87333", "copper" to "#B87333",
+    "תכלת" to "#4FC3F7", "cyan" to "#4FC3F7",
+    "טורקיז" to "#009688", "turquoise" to "#009688", "teal" to "#009688",
 )
 
 /**
@@ -86,7 +92,9 @@ fun resolveSwatch(name: String, storedHex: String?): ColorSwatch {
     return when (key) {
         in clearNames -> ColorSwatch.Clear
         in multiNames -> ColorSwatch.Multi
-        else -> ColorSwatch.None
+        // A compound name ("Earth Brown", "חום עץ") takes the hue of the palette color in it.
+        else -> key.split(Regex("""\s+""")).firstNotNullOfOrNull { paletteByName[it] }
+            ?.let { ColorSwatch.Hex(it) } ?: ColorSwatch.None
     }
 }
 

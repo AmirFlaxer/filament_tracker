@@ -31,26 +31,26 @@ class ColorSwatchTest {
     }
 
     @Test fun `unknown name without hex is none`() {
-        assertEquals(ColorSwatch.None, resolveSwatch("Teal", null))
+        assertEquals(ColorSwatch.None, resolveSwatch("Galaxy", null))
         assertEquals(ColorSwatch.None, resolveSwatch("", null))
     }
 
     @Test fun `stored hex wins over the name`() {
         assertEquals(ColorSwatch.Hex("#112233"), resolveSwatch("Red", "#112233"))
-        assertEquals(ColorSwatch.Hex("#112233"), resolveSwatch("Teal", "112233"))
+        assertEquals(ColorSwatch.Hex("#112233"), resolveSwatch("Galaxy", "112233"))
         assertEquals(ColorSwatch.Hex("#112233"), resolveSwatch("Clear", "#112233"))
     }
 
     @Test fun `invalid stored hex falls back to the name`() {
         assertEquals(ColorSwatch.Hex("#D32F2F"), resolveSwatch("Red", "nope"))
-        assertEquals(ColorSwatch.None, resolveSwatch("Teal", "#12345"))
+        assertEquals(ColorSwatch.None, resolveSwatch("Galaxy", "#12345"))
     }
 
     @Test fun `resolveColorHex gives hex only for real colors`() {
         assertEquals("#D32F2F", resolveColorHex("Red", null))
         assertEquals("#112233", resolveColorHex("Red", "#112233"))
         assertEquals(null, resolveColorHex("Clear", null))
-        assertEquals(null, resolveColorHex("Teal", null))
+        assertEquals(null, resolveColorHex("Galaxy", null))
     }
 
     @Test fun `light colors get the dark background and the rest the light one`() {

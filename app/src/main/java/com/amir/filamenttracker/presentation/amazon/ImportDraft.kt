@@ -7,6 +7,8 @@ import com.amir.filamenttracker.domain.amazon.isClosed
 import com.amir.filamenttracker.domain.amazon.isFilamentTitle
 import com.amir.filamenttracker.domain.amazon.readAmazonTitle
 import com.amir.filamenttracker.domain.composeColorName
+import com.amir.filamenttracker.domain.importColorName
+import com.amir.filamenttracker.domain.sameColor
 import com.amir.filamenttracker.domain.normalizeMaterialParts
 
 /** One color of a card; [productId] null means a new product, created on save. */
@@ -51,12 +53,14 @@ fun buildCards(order: AmazonOrder, products: List<ProductRow>, lists: CatalogLis
     order.items.filter { isFilamentTitle(it.title, lists.families) }.mapIndexed { index, item ->
         val r = readAmazonTitle(item.title, lists.brands, lists.families, lists.colors)
         val quantity = item.quantity
+        // Colors take the catalog's name when they exist there, otherwise their Hebrew name.
+        val colors = r.colors.map { importColorName(it, lists.colors) }
         val rows = when {
             r.colors.isEmpty() -> emptyList()
-            r.combined -> listOf(ImportRow(composeColorName(r.colors), quantity * r.spoolsPerUnit, null))
+            r.combined -> listOf(ImportRow(composeColorName(colors), quantity * r.spoolsPerUnit, null))
             // One spool per color, only when the colors account for the whole pack; otherwise the
             // found colors stay as they are and the owner marks the rest.
-            else -> r.colors.map { ImportRow(it, quantity, null) }
+            else -> colors.map { ImportRow(it, quantity, null) }
         }
         val toMark = when {
             r.colors.isEmpty() -> r.spoolsPerUnit
@@ -80,7 +84,7 @@ fun matchProduct(products: List<ProductRow>, card: ImportCard, colorName: String
             p.materialFamily.equals(card.family, ignoreCase = true) &&
             pParts == parts &&
             p.weightGrams == card.weightGrams &&
-            colorKey(colorName) == colorKey(p.colorName)
+            sameColor(colorName, p.colorName)
     }?.productId
 }
 
