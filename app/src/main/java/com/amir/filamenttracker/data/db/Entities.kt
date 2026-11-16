@@ -67,6 +67,8 @@ data class OrderEntity(
     val orderNumber: String? = null,
     /** Hidden from the main orders list. Only an order with nothing still on the way is archived. */
     val archived: Boolean = false,
+    /** Carrier tracking number, kept apart from [orderNumber] (the vendor's own order number). */
+    val trackingNumber: String? = null,
 )
 
 @Entity(

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 30 and lower: keep backing up everything except the WebView data (Amazon session cookies). -->
+<full-backup-content>
+    <exclude domain="root" path="app_webview" />
+</full-backup-content>

@@ -38,6 +38,22 @@ interface OrderDao {
     @Query("UPDATE orders SET archived = :archived WHERE id = :id")
     suspend fun setArchived(id: Long, archived: Boolean)
 
+    @Query("SELECT orderNumber FROM orders WHERE orderNumber IS NOT NULL AND orderNumber <> ''")
+    suspend fun allOrderNumbers(): List<String>
+
+    @Query(
+        """
+        SELECT * FROM orders o
+        WHERE o.archived = 0 AND o.trackingNumber IS NULL
+          AND EXISTS (SELECT 1 FROM spools s WHERE s.orderId = o.id AND s.status = 'ORDERED')
+        """,
+    )
+    suspend fun pendingOrdersWithoutTracking(): List<OrderEntity>
+
+    /** The automatic fill: writes only while no tracking number exists, so a manual entry is never replaced. */
+    @Query("UPDATE orders SET trackingNumber = :trackingNumber WHERE id = :id AND trackingNumber IS NULL")
+    suspend fun fillTrackingNumber(id: Long, trackingNumber: String)
+
     @Query("DELETE FROM orders WHERE id = :id")
     suspend fun deleteOrder(id: Long)
 }

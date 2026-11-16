@@ -9,9 +9,12 @@ import com.amir.filamenttracker.data.db.SpoolEventEntity
 import com.amir.filamenttracker.data.db.SpoolRow
 import com.amir.filamenttracker.data.db.toDomain
 import com.amir.filamenttracker.domain.SpoolPlanner
+import com.amir.filamenttracker.domain.colorKey
 import com.amir.filamenttracker.domain.isGenericBrand
+import com.amir.filamenttracker.domain.normalizeMaterialParts
 import com.amir.filamenttracker.domain.SpoolRuleException
 import com.amir.filamenttracker.domain.UndoNotPossibleException
+import com.amir.filamenttracker.domain.amazon.isAmazonOrderNumber
 import com.amir.filamenttracker.domain.model.Spool
 import com.amir.filamenttracker.domain.model.SpoolChange
 import com.amir.filamenttracker.domain.model.SpoolStatus
@@ -22,9 +25,17 @@ import com.amir.filamenttracker.domain.model.SpoolStatus.ORDERED
 import com.amir.filamenttracker.domain.model.SpoolStatus.SEALED
 import kotlinx.coroutines.flow.Flow
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** One line of an imported order; [productId] null means a product to create on save. */
+data class ImportLine(
+    val productId: Long?, val quantity: Int,
+    val brand: String, val family: String, val variant: String, val finish: String,
+    val colorName: String, val weightGrams: Int,
+)
 
 @Singleton
 class InventoryRepository @Inject constructor(
@@ -64,13 +75,14 @@ class InventoryRepository @Inject constructor(
         orderNumber: String?,
         expectedAt: LocalDate?,
         items: Map<Long, Int>,
+        orderedAt: Instant = clock.instant(),
     ): Long = db.withTransaction {
         val lines = items.filterValues { it > 0 }
         require(lines.isNotEmpty()) { "הזמנה חייבת לכלול לפחות סליל אחד" }
         val orderId = orderDao.insertOrder(
             OrderEntity(
                 vendor = vendor.trim().ifEmpty { "Amazon" },
-                orderedAt = clock.instant(),
+                orderedAt = orderedAt,
                 expectedAt = expectedAt,
                 orderNumber = orderNumber?.trim()?.ifEmpty { null },
             ),
@@ -81,6 +93,39 @@ class InventoryRepository @Inject constructor(
         orderId
     }
 
+    /** Saves an imported order and the products it needs in one transaction. */
+    suspend fun importOrder(
+        orderNumber: String,
+        orderedAt: Instant,
+        expectedAt: LocalDate?,
+        lines: List<ImportLine>,
+    ): Long = db.withTransaction {
+        val number = orderNumber.trim()
+        if (number in orderDao.allOrderNumbers().map { it.trim() }) throw SpoolRuleException("ההזמנה הזו כבר רשומה")
+        val wanted = lines.filter { it.quantity > 0 }
+        require(wanted.isNotEmpty()) { "הזמנה חייבת לכלול לפחות סליל אחד" }
+        val catalog = CatalogRepository(db)
+        val created = mutableMapOf<List<Any>, Long>()
+        val items = mutableMapOf<Long, Int>()
+        for (line in wanted) {
+            val productId = line.productId ?: run {
+                val parts = normalizeMaterialParts(line.variant, line.finish)
+                val key = listOf(
+                    line.brand.trim().lowercase(), line.family.trim().lowercase(),
+                    parts.variant, parts.finish, colorKey(line.colorName), line.weightGrams,
+                )
+                created.getOrPut(key) {
+                    catalog.createProduct(
+                        line.brand, line.family, line.variant, line.colorName,
+                        colorHex = "", weightGrams = line.weightGrams, note = "", materialFinish = line.finish,
+                    )
+                }
+            }
+            items.merge(productId, line.quantity, Int::plus)
+        }
+        createOrder("Amazon", number, expectedAt, items, orderedAt)
+    }
+
     /** Fixes a miscount: the new spools join as not yet arrived, even if the rest already did. */
     suspend fun addToOrder(orderId: Long, productId: Long, quantity: Int): List<Long> = db.withTransaction {
         require(quantity in 1..50) { "כמות חייבת להיות בין 1 ל-50" }
@@ -89,7 +134,7 @@ class InventoryRepository @Inject constructor(
         (1..quantity).map { insertWithEvent(productId, orderId, ORDERED, slot = null) }
     }
 
-    suspend fun updateOrder(orderId: Long, vendor: String, orderNumber: String?, expectedAt: LocalDate?) =
+    suspend fun updateOrder(orderId: Long, vendor: String, orderNumber: String?, expectedAt: LocalDate?, trackingNumber: String?) =
         db.withTransaction {
             val order = orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")
             orderDao.updateOrder(
@@ -97,9 +142,24 @@ class InventoryRepository @Inject constructor(
                     vendor = vendor.trim().ifEmpty { "Amazon" },
                     orderNumber = orderNumber?.trim()?.ifEmpty { null },
                     expectedAt = expectedAt,
+                    trackingNumber = trackingNumber?.trim()?.ifEmpty { null },
                 ),
             )
         }
+
+    /** Automatic fill: writes only when the order has no tracking number yet (a manual edit goes through [updateOrder]). */
+    suspend fun setTrackingNumber(orderId: Long, trackingNumber: String) = db.withTransaction {
+        orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")
+        val value = trackingNumber.trim()
+        if (value.isNotEmpty()) orderDao.fillTrackingNumber(orderId, value)
+    }
+
+    /** Every order number in the app, archived orders included. */
+    suspend fun orderNumbers(): Set<String> = orderDao.allOrderNumbers().toSet()
+
+    /** Pending Amazon orders (by order number format) that have no tracking number yet. */
+    suspend fun ordersAwaitingTracking(): List<OrderEntity> =
+        orderDao.pendingOrdersWithoutTracking().filter { it.orderNumber?.let(::isAmazonOrderNumber) == true }
 
     suspend fun setOrderArchived(orderId: Long, archived: Boolean) = db.withTransaction {
         orderDao.orderOnce(orderId) ?: throw SpoolRuleException("ההזמנה לא נמצאה")

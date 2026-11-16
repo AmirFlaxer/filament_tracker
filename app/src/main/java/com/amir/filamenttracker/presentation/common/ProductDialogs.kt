@@ -64,17 +64,19 @@ fun NewProductDialog(
     colors: List<ColorEntity>,
     brands: List<String>,
     onDismiss: () -> Unit,
+    initial: NewProductInput? = null,
+    showColor: Boolean = true,
     onConfirm: (NewProductInput) -> Unit,
 ) {
-    var brand by rememberSaveable { mutableStateOf("") }
-    var family by rememberSaveable { mutableStateOf(materials.firstOrNull()?.family ?: "") }
-    var variant by rememberSaveable { mutableStateOf("") }
-    var finish by rememberSaveable { mutableStateOf("") }
+    var brand by rememberSaveable { mutableStateOf(initial?.brand ?: "") }
+    var family by rememberSaveable { mutableStateOf(initial?.materialFamily ?: materials.firstOrNull()?.family ?: "") }
+    var variant by rememberSaveable { mutableStateOf(initial?.materialVariant ?: "") }
+    var finish by rememberSaveable { mutableStateOf(initial?.materialFinish ?: "") }
     var moreFinishes by rememberSaveable { mutableStateOf(false) }
-    var color by rememberSaveable { mutableStateOf("") }
-    var hex by rememberSaveable { mutableStateOf("") }
-    var weight by rememberSaveable { mutableStateOf("1000") }
-    var note by rememberSaveable { mutableStateOf("") }
+    var color by rememberSaveable { mutableStateOf(initial?.colorName ?: "") }
+    var hex by rememberSaveable { mutableStateOf(initial?.colorHex ?: "") }
+    var weight by rememberSaveable { mutableStateOf((initial?.weightGrams ?: 1000).toString()) }
+    var note by rememberSaveable { mutableStateOf(initial?.note ?: "") }
 
     val families = materials.map { it.family }.distinctBy { it.uppercase() }
     // Known words have their own chips; a free sub-type or finish already used in this family gets one too.
@@ -107,11 +109,12 @@ fun NewProductDialog(
         }
         family = newFamily
     }
-    val canSave = brand.isNotBlank() && family.isNotBlank() && color.isNotBlank() && weightValue > 0 && hexValid
+    val canSave = brand.isNotBlank() && family.isNotBlank() && weightValue > 0 &&
+        (!showColor || (color.isNotBlank() && hexValid))
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("מוצר חדש") },
+        title = { Text(if (showColor) "מוצר חדש" else "עריכת מפרט") },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()),
@@ -148,35 +151,37 @@ fun NewProductDialog(
                     }
                     TextButton(onClick = { moreFinishes = !moreFinishes }) { Text(if (moreFinishes) "פחות גימורים" else "עוד גימורים") }
                 }
-                OutlinedTextField(
-                    color, { color = it },
-                    label = { Text(if (multiColor) "צבעים (סמן את כל הצבעים בסליל)" else "צבע") },
-                    singleLine = true,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    colorChips.forEach { c ->
-                        FilterChip(
-                            selected = if (multiColor) colorParts(color).any { it.equals(c.name, ignoreCase = true) } else color == c.name,
-                            onClick = {
-                                if (multiColor) {
-                                    toggleColor(c)
-                                } else {
-                                    color = c.name
-                                    if (hex.isBlank()) hex = c.hex ?: ""
-                                }
-                            },
-                            label = { Text(c.name) },
-                            leadingIcon = { ColorDot(resolveColorHex(c.name, c.hex), size = 14.dp) },
-                        )
+                if (showColor) {
+                    OutlinedTextField(
+                        color, { color = it },
+                        label = { Text(if (multiColor) "צבעים (סמן את כל הצבעים בסליל)" else "צבע") },
+                        singleLine = true,
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        colorChips.forEach { c ->
+                            FilterChip(
+                                selected = if (multiColor) colorParts(color).any { it.equals(c.name, ignoreCase = true) } else color == c.name,
+                                onClick = {
+                                    if (multiColor) {
+                                        toggleColor(c)
+                                    } else {
+                                        color = c.name
+                                        if (hex.isBlank()) hex = c.hex ?: ""
+                                    }
+                                },
+                                label = { Text(c.name) },
+                                leadingIcon = { ColorDot(resolveColorHex(c.name, c.hex), size = 14.dp) },
+                            )
+                        }
                     }
+                    OutlinedTextField(
+                        hex, { hex = it },
+                        label = { Text("גוון, לא חובה (למשל #1A2B3C)") },
+                        singleLine = true,
+                        isError = !hexValid,
+                        trailingIcon = { ColorDot(resolveColorHex(color, hex)) },
+                    )
                 }
-                OutlinedTextField(
-                    hex, { hex = it },
-                    label = { Text("גוון, לא חובה (למשל #1A2B3C)") },
-                    singleLine = true,
-                    isError = !hexValid,
-                    trailingIcon = { ColorDot(resolveColorHex(color, hex)) },
-                )
                 OutlinedTextField(
                     weight, { weight = it.filter(Char::isDigit) },
                     label = { Text("משקל בגרמים") },
@@ -184,13 +189,16 @@ fun NewProductDialog(
                     isError = weightValue <= 0,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
-                OutlinedTextField(note, { note = it }, label = { Text("הערה") })
+                if (showColor) OutlinedTextField(note, { note = it }, label = { Text("הערה") })
             }
         },
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onConfirm(NewProductInput(brand, family, variant, finish, color, hex, weightValue, note)) },
+                onClick = { onConfirm(
+                        if (showColor) NewProductInput(brand, family, variant, finish, color, hex, weightValue, note)
+                        else NewProductInput(brand, family, variant, finish, "", "", weightValue, ""),
+                    ) },
             ) { Text("שמור") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("ביטול") } },

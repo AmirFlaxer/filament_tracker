@@ -31,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.amir.filamenttracker.presentation.amazon.AmazonImportScreen
 import com.amir.filamenttracker.presentation.ams.AmsScreen
 import com.amir.filamenttracker.presentation.catalog.CatalogScreen
 import com.amir.filamenttracker.presentation.common.NoInsets
@@ -119,12 +120,14 @@ fun AppNav() {
                 OrdersScreen(
                     onOrderClick = { nav.navigate(Routes.order(it)) },
                     onNewOrder = { nav.navigate(Routes.NEW_ORDER) },
+                    onAmazonImport = { nav.navigate(Routes.AMAZON_IMPORT) },
                 )
             }
             composable(Routes.CONSUMPTION) { ConsumptionScreen() }
             composable(Routes.CATALOG) { CatalogScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.TARGETS) { TargetsScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.ADD_EXISTING) { AddExistingScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.AMAZON_IMPORT) { AmazonImportScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.NEW_ORDER) { NewOrderScreen(onBack = { nav.popBackStack() }) }
             composable(
                 Routes.SPOOL,

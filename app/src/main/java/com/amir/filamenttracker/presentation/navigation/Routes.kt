@@ -11,6 +11,7 @@ object Routes {
     const val TARGETS = "targets"
     const val ADD_EXISTING = "add_existing"
     const val NEW_ORDER = "new_order"
+    const val AMAZON_IMPORT = "amazon_import"
 
     const val SPOOL = "spool/{spoolId}"
     fun spool(id: Long) = "spool/$id"

@@ -9,7 +9,9 @@ import com.amir.filamenttracker.data.db.MIGRATION_1_2
 import com.amir.filamenttracker.data.db.MIGRATION_2_3
 import com.amir.filamenttracker.data.db.MIGRATION_3_4
 import com.amir.filamenttracker.data.db.MIGRATION_4_5
+import com.amir.filamenttracker.data.db.MIGRATION_5_6
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -169,5 +171,18 @@ class MigrationTest {
         assertEquals(0, db.count("product_barcodes"))
         assertEquals(1, db.count("products"))
         assertEquals(1, db.count("spools"))
+    }
+
+    @Test
+    fun `migration 5 to 6 adds an empty tracking number and keeps every order`() {
+        val v5 = helper.createDatabase("migration-5-6.db", 5)
+        v5.execSQL("INSERT INTO orders (id, vendor, orderedAt, expectedAt, orderNumber, archived) VALUES (1,'Amazon',0,NULL,'RU0000000000Z',1)")
+        v5.close()
+        val db = helper.runMigrationsAndValidate("migration-5-6.db", 6, true, MIGRATION_5_6)
+        db.query("SELECT orderNumber, trackingNumber FROM orders").use { c ->
+            c.moveToFirst()
+            assertEquals("RU0000000000Z", c.getString(0)) // historical value stays where it was
+            assertTrue(c.isNull(1))
+        }
     }
 }

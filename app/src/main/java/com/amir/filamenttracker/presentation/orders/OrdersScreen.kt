@@ -53,7 +53,7 @@ import com.amir.filamenttracker.presentation.common.formatDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: OrdersViewModel = hiltViewModel()) {
+fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, onAmazonImport: () -> Unit, vm: OrdersViewModel = hiltViewModel()) {
     val sections by vm.sections.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
@@ -76,8 +76,9 @@ fun OrdersScreen(onOrderClick: (Long) -> Unit, onNewOrder: () -> Unit, vm: Order
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 88.dp)) {
             val s = sections ?: return@LazyColumn
             item(key = "scan-shipment") {
-                OutlinedButton(onClick = startCapture, enabled = scan != ScanUiState.Reading, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("סרוק משלוח")
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = startCapture, enabled = scan != ScanUiState.Reading) { Text("סרוק משלוח") }
+                    OutlinedButton(onClick = onAmazonImport) { Text("ייבוא מאמזון") }
                 }
             }
             if (s.waiting.isEmpty() && s.arrived.isEmpty() && s.archived.isEmpty()) {

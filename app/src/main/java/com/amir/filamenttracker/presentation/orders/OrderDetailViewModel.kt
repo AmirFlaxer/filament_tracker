@@ -39,8 +39,8 @@ class OrderDetailViewModel @Inject constructor(
         "המוצר הוחלף"
     }
 
-    fun updateDetails(vendor: String, orderNumber: String, expectedAt: LocalDate?) = launchAction {
-        inventory.updateOrder(orderId, vendor, orderNumber, expectedAt)
+    fun updateDetails(vendor: String, orderNumber: String, expectedAt: LocalDate?, trackingNumber: String) = launchAction {
+        inventory.updateOrder(orderId, vendor, orderNumber, expectedAt, trackingNumber)
         "פרטי ההזמנה עודכנו"
     }
 

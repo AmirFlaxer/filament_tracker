@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -19,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -31,9 +33,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +60,7 @@ import com.amir.filamenttracker.presentation.common.Stepper
 import com.amir.filamenttracker.presentation.common.countLabel
 import com.amir.filamenttracker.presentation.common.formatDate
 import com.amir.filamenttracker.presentation.common.statusText
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /** What a picked product is for: new spools in the order, or the right product for one spool. */
@@ -72,6 +79,8 @@ fun OrderDetailScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: Orde
     val brands by vm.brands.collectAsStateWithLifecycle()
     val host = remember { SnackbarHostState() }
     CollectMessages(vm.messages, host)
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     var confirmDeleteOrder by remember { mutableStateOf(false) }
     var editDetails by remember { mutableStateOf(false) }
     var removeSpoolId by remember { mutableStateOf<Long?>(null) }
@@ -110,6 +119,22 @@ fun OrderDetailScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: Orde
                     Column(Modifier.padding(16.dp)) {
                         Text("${o.vendor} · ${o.orderedAt.formatDate()}", style = MaterialTheme.typography.titleMedium)
                         o.orderNumber?.let { Text("מספר הזמנה: $it") }
+                        o.trackingNumber?.let { tracking ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("מספר משלוח: ")
+                                Text(
+                                    tracking,
+                                    style = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                IconButton(onClick = {
+                                    clipboard.setText(AnnotatedString(tracking))
+                                    scope.launch { host.showSnackbar("הועתק") }
+                                }) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "העתק מספר משלוח")
+                                }
+                            }
+                        }
                         o.expectedAt?.let { Text("צפי הגעה: ${it.formatDate()}") }
                     }
                 }
@@ -177,8 +202,8 @@ fun OrderDetailScreen(onBack: () -> Unit, onSpoolClick: (Long) -> Unit, vm: Orde
     }
     if (editDetails) {
         order?.let { o ->
-            EditOrderDialog(o, onDismiss = { editDetails = false }) { vendor, number, expected ->
-                vm.updateDetails(vendor, number, expected)
+            EditOrderDialog(o, onDismiss = { editDetails = false }) { vendor, number, expected, tracking ->
+                vm.updateDetails(vendor, number, expected, tracking)
                 editDetails = false
             }
         }
@@ -235,10 +260,11 @@ private fun AddQuantityDialog(product: ProductRow?, onDismiss: () -> Unit, onCon
 private fun EditOrderDialog(
     order: OrderEntity,
     onDismiss: () -> Unit,
-    onConfirm: (vendor: String, orderNumber: String, expectedAt: LocalDate?) -> Unit,
+    onConfirm: (vendor: String, orderNumber: String, expectedAt: LocalDate?, trackingNumber: String) -> Unit,
 ) {
     var vendor by remember { mutableStateOf(order.vendor) }
     var orderNumber by remember { mutableStateOf(order.orderNumber.orEmpty()) }
+    var trackingNumber by remember { mutableStateOf(order.trackingNumber.orEmpty()) }
     var expectedAt by remember { mutableStateOf(order.expectedAt) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -247,10 +273,11 @@ private fun EditOrderDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(vendor, { vendor = it }, label = { Text("ספק") }, singleLine = true)
                 OutlinedTextField(orderNumber, { orderNumber = it }, label = { Text("מספר הזמנה, לא חובה") }, singleLine = true)
+                OutlinedTextField(trackingNumber, { trackingNumber = it }, label = { Text("מספר משלוח, לא חובה") }, singleLine = true)
                 ExpectedDateField(expectedAt) { expectedAt = it }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(vendor, orderNumber, expectedAt) }) { Text("שמור") } },
+        confirmButton = { TextButton(onClick = { onConfirm(vendor, orderNumber, expectedAt, trackingNumber) }) { Text("שמור") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("ביטול") } },
     )
 }

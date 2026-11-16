@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MaterialEntity::class, ColorEntity::class, ProductEntity::class, OrderEntity::class,
         SpoolEntity::class, SpoolEventEntity::class, StockTargetEntity::class, ProductBarcodeEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

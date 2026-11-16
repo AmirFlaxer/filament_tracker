@@ -205,17 +205,59 @@ class InventoryRepositoryTest {
     fun `order details can be corrected`() = runTest {
         val orderId = repo.createOrder("Amazon", "111", null, mapOf(black to 1))
         val date = java.time.LocalDate.of(2026, 10, 25)
-        repo.updateOrder(orderId, " AliExpress ", " 222 ", date)
+        repo.updateOrder(orderId, " AliExpress ", " 222 ", date, " RU1Z ")
         val o = repo.order(orderId).first()!!
         assertEquals("AliExpress", o.vendor)
         assertEquals("222", o.orderNumber)
         assertEquals(date, o.expectedAt)
+        assertEquals("RU1Z", o.trackingNumber)
 
-        repo.updateOrder(orderId, " ", "", null)
+        repo.updateOrder(orderId, " ", "", null, "")
         val cleared = repo.order(orderId).first()!!
         assertEquals("Amazon", cleared.vendor)
         assertNull(cleared.orderNumber)
         assertNull(cleared.expectedAt)
+        assertNull(cleared.trackingNumber)
+    }
+
+    @Test
+    fun `createOrder keeps the given ordered date`() = runTest {
+        val at = java.time.Instant.parse("2026-11-15T00:00:00Z")
+        val orderId = repo.createOrder("Amazon", null, null, mapOf(black to 1), orderedAt = at)
+        assertEquals(at, repo.order(orderId).first()!!.orderedAt)
+    }
+
+    @Test
+    fun `orderNumbers includes archived orders and skips blank ones`() = runTest {
+        val archived = repo.createOrder("Amazon", "111-0000001-0000001", null, mapOf(black to 1))
+        repo.markOrderArrived(archived)
+        repo.setOrderArchived(archived, true)
+        repo.createOrder("Amazon", null, null, mapOf(black to 1))
+        assertEquals(setOf("111-0000001-0000001"), repo.orderNumbers())
+    }
+
+    @Test
+    fun `ordersAwaitingTracking returns only pending Amazon orders without a tracking number`() = runTest {
+        val first = repo.createOrder("Amazon", "111-0000001-0000001", null, mapOf(black to 1))
+        val withTracking = repo.createOrder("Amazon", "111-0000002-0000002", null, mapOf(black to 1))
+        repo.setTrackingNumber(withTracking, "RU1Z")
+        repo.createOrder("AliExpress", "RU0000000000Z", null, mapOf(black to 1))
+        val arrived = repo.createOrder("Amazon", "111-0000003-0000003", null, mapOf(black to 1))
+        repo.markOrderArrived(arrived)
+        assertEquals(listOf(first), repo.ordersAwaitingTracking().map { it.id })
+    }
+
+    @Test
+    fun `automatic tracking fill never overwrites an existing number`() = runTest {
+        val orderId = repo.createOrder("Amazon", "111-0000001-0000001", null, mapOf(black to 1))
+        repo.setTrackingNumber(orderId, "RU0000000000Z")
+        repo.setTrackingNumber(orderId, "RU1111111111Z")
+        assertEquals("RU0000000000Z", repo.order(orderId).first()!!.trackingNumber)
+        val empty = repo.createOrder("Amazon", "111-0000002-0000002", null, mapOf(black to 1))
+        repo.setTrackingNumber(empty, "RU2222222222Z")
+        assertEquals("RU2222222222Z", repo.order(empty).first()!!.trackingNumber)
+        repo.updateOrder(orderId, "Amazon", "111-0000001-0000001", null, "RU3333333333Z")
+        assertEquals("RU3333333333Z", repo.order(orderId).first()!!.trackingNumber)
     }
 
     @Test
@@ -371,5 +413,50 @@ class InventoryRepositoryTest {
         val e = runCatching { repo.retagSpool(first, "XZN") }.exceptionOrNull()
         assertTrue(e is SpoolRuleException)
         assertEquals("אפשר לעדכן רק סליל גנרי", e!!.message)
+    }
+
+    private fun line(productId: Long?, quantity: Int, color: String = "Red") = ImportLine(
+        productId = productId, quantity = quantity, brand = "ACME", family = "PLA", variant = "",
+        finish = "Matte", colorName = color, weightGrams = 1000,
+    )
+
+    @Test
+    fun `importOrder creates new products once and the order with Amazon's date`() = runTest {
+        val before = db.catalogDao().activeProducts().first().size
+        val orderedAt = java.time.Instant.parse("2026-11-01T00:00:00Z")
+        val expected = java.time.LocalDate.of(2026, 11, 20)
+        val id = repo.importOrder(
+            " 111-0000001-0000001 ", orderedAt, expected,
+            listOf(line(null, 2), line(null, 1), line(black, 3)),
+        )
+        assertEquals(before + 1, db.catalogDao().activeProducts().first().size)
+        val order = db.orderDao().orderOnce(id)!!
+        assertEquals("Amazon", order.vendor)
+        assertEquals("111-0000001-0000001", order.orderNumber)
+        assertEquals(orderedAt, order.orderedAt)
+        assertEquals(expected, order.expectedAt)
+        assertEquals(6, db.spoolDao().spoolsOfOrder(id).count { it.status == ORDERED })
+    }
+
+    @Test
+    fun `importOrder refuses an order number that already exists`() = runTest {
+        repo.importOrder("111-0000001-0000001", clock.instant(), null, listOf(line(null, 1)))
+        val before = db.catalogDao().activeProducts().first().size
+        val e = runCatching {
+            repo.importOrder("111-0000001-0000001", clock.instant(), null, listOf(line(null, 1, "Blue")))
+        }.exceptionOrNull()
+        assertTrue(e is SpoolRuleException)
+        assertEquals("ההזמנה הזו כבר רשומה", e!!.message)
+        assertEquals(before, db.catalogDao().activeProducts().first().size)
+    }
+
+    @Test
+    fun `importOrder with nothing to order fails before creating products`() = runTest {
+        val before = db.catalogDao().activeProducts().first().size
+        val e = runCatching {
+            repo.importOrder("111-0000001-0000001", clock.instant(), null, listOf(line(null, 0)))
+        }.exceptionOrNull()
+        assertTrue(e != null)
+        assertEquals(before, db.catalogDao().activeProducts().first().size)
     }
 }

@@ -128,3 +128,10 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_barcodes_productId` ON `product_barcodes` (`productId`)")
     }
 }
+
+/** Version 6: tracking number on orders. The table gets an empty column; every existing row is untouched. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE orders ADD COLUMN trackingNumber TEXT")
+    }
+}
